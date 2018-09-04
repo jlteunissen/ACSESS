@@ -14,28 +14,32 @@ bondorder = {
     2: Chem.BondType.DOUBLE,
     3: Chem.BondType.TRIPLE
 }
-aromatic = False
+aromaticity = False
 verbose  = True
 canonicalTautomer = False
 
 ############ FROM CANONICAL #############################
-def Finalize(mol, tautomerize=None, aromatic=aromatic):
+def Finalize(mol, tautomerize=None, aromatic=aromaticity):
     ''' This function makes sure that a new mutated/crossover/fixfilter molecule:
         - corrects the implicit valence
         - removes data from parent molecules.
         - optionally converts the molecule to its canonical tautomer
         - checks if it is a valid molecule, i.e. Sanitize step. (without aromaticity)
     '''
+    # 1.
     mol.UpdatePropertyCache()
 
-    if type(mol) == Chem.RWMol:
-        RW = True
-    else:
-        RW = False
+    # 2.
+    RW = type(mol) == Chem.RWMol
+
+    # 3.
     ResetProps(mol)
 
+    # 4.
     if canonicalTautomer and not tautomerize is False:
-        mol = Tautomerize(mol)
+        mol = Tautomerize(mol, aromatic)
+
+    # 5.
     try:
         Sanitize(mol, aromatic)
     except Exception as e:
@@ -44,8 +48,12 @@ def Finalize(mol, tautomerize=None, aromatic=aromatic):
         if debug:
             for item in traceback.extract_stack():
                 print item
+
+    # 6.
     if aromatic: Chem.SetAromaticity(mol)
-    if RW:
+
+    # 7.
+    if RW and not type(mol) == Chem.RWMol:
         return Chem.RWMol(mol)
     else:
         return mol
@@ -57,8 +65,8 @@ def ResetProps(mol):
     isosmi = Chem.MolToSmiles(mol, True)
     for prop in [
             'filtered', 'hasstructure', 'tautomerized', 'minimized',
-    #        'selected', 'failed', 'failedfilter', 'Objective'
-            'selected', 'failed', 'Objective'
+            'selected', 'failed', 'failedfilter', 'Objective'
+    #        'selected', 'failed', 'Objective'
     ]:
         mol.ClearProp(prop)
     mol.SetProp('isosmi', isosmi)
@@ -211,7 +219,7 @@ def GetListProp(mol, name):
 
 def Sanitize(mol, aromatic=False):
     '''The rdkit sanitize step with the option to switch off aromaticity'''
-    if aromatic:
+    if aromatic or aromaticity:
         Chem.SanitizeMol(mol)
     else:
         Chem.SanitizeMol(
@@ -225,11 +233,14 @@ def Sanitize(mol, aromatic=False):
 ########## TAUTOMERIZING:
 
 
-def Tautomerize(mol):
+def Tautomerize(mol, aromatic=aromaticity):
     try:
         if mol.GetBoolProp('tautomerized'): return mol
     except KeyError:
         pass
+
+    if not (aromatic or aromaticity):
+        Chem.Kekulize(mol, True)
 
     smi1 = Chem.MolToSmiles(mol)
     from molvs import Standardizer
@@ -238,6 +249,9 @@ def Tautomerize(mol):
         molnew = s.standardize(mol)
     except ValueError as e:
         raise MutateFail(mol)
+
+    if not aromatic:
+        Chem.Kekulize(molnew, True)
     smi2 = Chem.MolToSmiles(molnew)
 
     if smi1 == smi2:
@@ -246,12 +260,12 @@ def Tautomerize(mol):
         mol.SetBoolProp('tautomerized', True)
         return mol
     else:
-        if not aromatic:
-            Chem.Kekulize(molnew, True)
         if mol.HasProp('failedfilter'):
             ff = mol.GetProp('failedfilter')
             molnew.SetProp('failedfilter', ff)
         print "tautomerized:", smi1, 'to:', smi2
+        with open('tautomerized.smi', 'a') as f:
+            f.write("{} {}".format(smi1, smi2))
         molnew.SetBoolProp('tautomerized', True)
         return molnew
 

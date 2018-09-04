@@ -80,7 +80,7 @@ def FixBredt(mol):
     for match in matches:
         for bond in GetAtomIBonds(match, mol):
             bond.SetBondType(Chem.BondType.SINGLE)
-        if aromatic: Chem.SetAromaticity(mol)
+        if aromaticity: Chem.SetAromaticity(mol)
         changed = True
     return changed
 
@@ -224,14 +224,14 @@ def TripleBondInRing(mol):
             # test if Ringsize smaller than 9:
             if any(bond.IsInRingSize(n) for n in range(2, 10)):
                 #if oe.OEBondGetSmallestRingSize(bond)<9 and bond.GetOrder()==3:
-                if aromatic: Chem.SetAromaticity(mol)
+                if aromaticity: Chem.SetAromaticity(mol)
                 return "triple bond in ring"
             else:
                 ntripleinlargering += 1
                 if ntripleinlargering > 1:
                     return "more than one triple bond in large ring"
                 #print "triple bond in large ring:", Chem.MolToSmiles(mol)
-    if aromatic: Chem.SetAromaticity(mol)
+    if aromaticity: Chem.SetAromaticity(mol)
     return False
 
 

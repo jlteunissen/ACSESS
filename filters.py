@@ -93,7 +93,9 @@ def Init():
 
 
 def FixAndFilter(mol):
-    if mol is None: return None, True
+    if mol is None:
+        print "Jos is here!"
+        return None, True
     elif not type(mol) == Chem.RWMol:
         print "mol to RWmol"
         mol = Chem.RWMol(mol)
@@ -122,7 +124,7 @@ def FixAndFilter(mol):
     if debug and filt:
         print "changed:{}, failed:{}, mol:{}".format(changed, filt,
                                                      Chem.MolToSmiles(mol))
-    if changed: mol = Finalize(mol)
+    if changed: mol = Finalize(mol, tautomerize=False)
 
     # 5. Set molprops
     mol.SetBoolProp('filtered', True)
@@ -174,7 +176,7 @@ def FixFilters(mol):
                     changed = True
                     # 4b. To get a new chance it should stand the test:
                     try:
-                        mol = Finalize(mol)
+                        mol = Finalize(mol, tautomerize=False)
                     except (ValueError, MutateFail) as e:
                         return changed, failure
 
