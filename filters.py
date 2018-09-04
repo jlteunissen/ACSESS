@@ -122,7 +122,7 @@ def FixAndFilter(mol):
     if debug and filt:
         print "changed:{}, failed:{}, mol:{}".format(changed, filt,
                                                      Chem.MolToSmiles(mol))
-    if changed: Finalize(mol)
+    if changed: mol = Finalize(mol)
 
     # 5. Set molprops
     mol.SetBoolProp('filtered', True)
@@ -153,7 +153,6 @@ def FixFilters(mol):
                 try:
                     Chem.Kekulize(mol, True)
                 except ValueError:
-                    #raise MutateFail
                     success = False
                     changed = True
                 if debug: print Chem.MolToSmiles(mol)
@@ -173,10 +172,10 @@ def FixFilters(mol):
                 if not success: return changed, failure
                 else:
                     changed = True
-                    # 4b. To get a new change it should stand the test:
+                    # 4b. To get a new chance it should stand the test:
                     try:
-                        Finalize(mol)
-                    except ValueError:
+                        mol = Finalize(mol)
+                    except (ValueError, MutateFail) as e:
                         return changed, failure
 
                     if debug: print "\tFixed!", Chem.MolToSmiles(mol)
@@ -209,7 +208,7 @@ def NewFixAndFilter(mol):
                     return changed, failure
                 else:
                     changed = True
-                    Finalize(mol)
+                    mol = Finalize(mol)
                     break
         if i == MAXTRY - 1 or (
                 not failure):  #i.e. all filters passed without problems

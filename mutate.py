@@ -188,7 +188,7 @@ def Crossover(m1, m2):
     #print "new mol!", Chem.MolToSmiles(newmolRW)
     mol = newmolRW.GetMol()
     try:
-        Finalize(mol, aromatic=False)
+        mol = Finalize(mol, aromatic=False)
     except:
         raise MutateFail()
     if debug: print "CX5",
@@ -557,7 +557,7 @@ def RemoveAtom(mol, atom):
             raise MutateFail(mol)
 
     try:
-        Finalize(mol, aromatic=False)
+        mol = Finalize(mol, aromatic=False)
     except Exception as e:
         print "in Remove Atom with:", Chem.MolToSmiles(mol, True), e
     return mol

@@ -39,7 +39,7 @@ debug = False
 
 
 def SetIterationWorkflow(gen):
-    Tautomerizing = (startTautomer and gen >= startTautomer)
+    Tautomerizing = ( (not startTautomer is None) and gen >= startTautomer)
     Filter = (gen >= startFilter)
     GenStruc = (gen >= startGenStruc)
     return Tautomerizing, Filter, GenStruc
@@ -63,7 +63,7 @@ def DriveMutations(lib):
                 mol2 = random.choice(lib + newmols)
             candidate = mutate.Crossover(mol1, mol2)
             if type(candidate) == Chem.RWMol: candidate = candidate.GetMol()
-            Finalize(candidate, aromatic=False)
+            candidate = Finalize(candidate, aromatic=False)
             newmols.append(candidate)
             stats['nCand'] += 1
         except MutateFail:
@@ -87,7 +87,7 @@ def DriveMutations(lib):
             if type(candidate) == Chem.RWMol:
                 candidate = candidate.GetMol()
             try:
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except Exception as e:
                 raise MutateFail(candidate)
             newmols.append(candidate)
@@ -198,12 +198,10 @@ def DriveFilters(lib, Filtering, GenStrucs):
 
 def DrivePoolFilters(pool, Filtering, GenStruc, Tautomerizing, gen):
     pool = filter(bool, pool)
-    if Tautomerizing:
-        CanonicalTautomer = True
-        if gen == startTautomer:
-            print 'tautomerizing pool...',
-            sys.stdout.flush()
-            pool = filter(Tautomerize, pool)
+    if Tautomerizing and gen == startTautomer:
+        print 'pool - tautomerizing ...',
+        sys.stdout.flush()
+        pool = map(Tautomerize, pool)
     if GenStruc and gen == startGenStruc and not KeepNoGeomPool:
         print 'restarting and filtering pool...',
         sys.stdout.flush()
@@ -211,7 +209,7 @@ def DrivePoolFilters(pool, Filtering, GenStruc, Tautomerizing, gen):
         DriveFilters(pool, Filtering, GenStruc)
     if (Filtering and gen == startFilter) or (GenStruc and gen == startGenStruc
                                               and KeepNoGeomPool):
-        print 'pool-',
+        print 'pool -',
         pool = DriveFilters(pool, Filtering, GenStruc)
     return pool
 
@@ -310,7 +308,7 @@ def MakeMutations(candidate):
     # 3. SetAromaticity again
     try:
         if aromatic: Chem.SetAromaticity(candidate)
-        Finalize(candidate)
+        candiate = Finalize(candidate)
     except ValueError:
         print "MakeMutation. SetAromaticity Error:", Chem.MolToSmiles(
             candidate)
@@ -340,7 +338,7 @@ def SingleMutate(candidateraw):
     #    try:
     #        change=MutateBackbone(candidate)
     #        if change:
-    #            cn.Finalize(candidate)
+    #            candidate = Finalize(candidate)
     #            return candidate
     #    except mt.MutateFail: pass
 
@@ -354,7 +352,7 @@ def SingleMutate(candidateraw):
             Chem.Kekulize(candidate, True)
             bonds = list(GetBonds(candidate, notprop='group'))
             mutate.FlipBond(candidate, random.choice(bonds))
-            Finalize(candidate, aromatic=False)
+            canditate = Finalize(candidate, aromatic=False)
         except MutateFail:
             stats['nFlipFail'] += 1
 
@@ -367,7 +365,7 @@ def SingleMutate(candidateraw):
         try:
             mutate.SwitchAtom(candidate, random.choice(atoms))
             try:
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except:
                 raise MutateFail
         except MutateFail:
@@ -381,7 +379,7 @@ def SingleMutate(candidateraw):
         try:
             mutate.AddBond(candidate)
             try:
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except:
                 raise MutateFail
             return candidate
@@ -403,7 +401,7 @@ def SingleMutate(candidateraw):
         if len(bonds) != 0:
             mutate.RemoveBond(candidate, random.choice(bonds))
             try:
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except Exception as e:
                 print "error with RemoveBond with mol:", Chem.MolToSmiles(True)
                 print e
@@ -421,7 +419,7 @@ def SingleMutate(candidateraw):
         try:
             mutate.AddAtom(candidate, random.choice(atoms + bonds))
             try:
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except:
                 raise MutateFail
             return candidate
@@ -438,7 +436,7 @@ def SingleMutate(candidateraw):
         try:
             try:
                 mutate.RemoveAtom(candidate, random.choice(atoms))
-                Finalize(candidate, aromatic=False)
+                candidate = Finalize(candidate, aromatic=False)
             except Exception as e:
                 print "initial mol:", inismi
                 print "e:", e, "mol:", Chem.MolToSmiles(candidate)
@@ -464,7 +462,7 @@ def SingleMutate(candidateraw):
                 candidate = mutate.AddArRing(candidate,
                                              random.choice(correctbonds))
                 try:
-                    Finalize(candidate, aromatic=False)
+                    candidate = Finalize(candidate, aromatic=False)
                 except Exception as e:
                     print "exception in AddArRing with", Chem.MolToSmiles(
                         candidate)

@@ -163,7 +163,7 @@ if __name__ == "__main__":
             except KeyboardInterrupt:
                 print "catched KeyboardInterrupt!"
                 output.PrintTimings()
-                output.PrintStats()
+                output.PrintStat()
                 output.PrintTotalTimings()
                 sys.exit(0)
 

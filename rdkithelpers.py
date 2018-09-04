@@ -16,9 +16,10 @@ bondorder = {
 }
 aromatic = False
 verbose  = True
+canonicalTautomer = False
 
 ############ FROM CANONICAL #############################
-def Finalize(mol, CanonicalTautomer=False, aromatic=aromatic):
+def Finalize(mol, tautomerize=None, aromatic=aromatic):
     ''' This function makes sure that a new mutated/crossover/fixfilter molecule:
         - corrects the implicit valence
         - removes data from parent molecules.
@@ -26,23 +27,28 @@ def Finalize(mol, CanonicalTautomer=False, aromatic=aromatic):
         - checks if it is a valid molecule, i.e. Sanitize step. (without aromaticity)
     '''
     mol.UpdatePropertyCache()
+
     if type(mol) == Chem.RWMol:
         RW = True
     else:
         RW = False
     ResetProps(mol)
-    if CanonicalTautomer:
-        Tautomerize(mol)
+
+    if canonicalTautomer and not tautomerize is False:
+        mol = Tautomerize(mol)
     try:
         Sanitize(mol, aromatic)
     except Exception as e:
-        print "Error in Finalize with", Chem.MolToSmiles(mol, False), 
+        print "Error in Finalize with", Chem.MolToSmiles(mol, False),
         if verbose: print e,
         if debug:
             for item in traceback.extract_stack():
                 print item
-    #Chem.SetAromaticity(mol)
-    return
+    if aromatic: Chem.SetAromaticity(mol)
+    if RW:
+        return Chem.RWMol(mol)
+    else:
+        return mol
 
 
 def ResetProps(mol):
@@ -51,7 +57,8 @@ def ResetProps(mol):
     isosmi = Chem.MolToSmiles(mol, True)
     for prop in [
             'filtered', 'hasstructure', 'tautomerized', 'minimized',
-            'selected', 'failed', 'failedfilter', 'Objective'
+    #        'selected', 'failed', 'failedfilter', 'Objective'
+            'selected', 'failed', 'Objective'
     ]:
         mol.ClearProp(prop)
     mol.SetProp('isosmi', isosmi)
@@ -176,7 +183,7 @@ def GetFreeBonds(mol, order=None, notprop=None, sides=False):
 
 
 def SetListProp(mol, name, iterable):
-    ''' Since rdkit molecules can only store single values, list properties 
+    ''' Since rdkit molecules can only store single values, list properties
     are stored as strings. Values are separated by a space
     NB: float precision is hardcoded to 20 decimals'''
     try:
@@ -220,25 +227,33 @@ def Sanitize(mol, aromatic=False):
 
 def Tautomerize(mol):
     try:
-        if mol.GetBoolProp('tautomerized'): return
+        if mol.GetBoolProp('tautomerized'): return mol
     except KeyError:
         pass
+
     smi1 = Chem.MolToSmiles(mol)
     from molvs import Standardizer
     s = Standardizer()
     try:
-        s.standardize(mol)
+        molnew = s.standardize(mol)
     except ValueError as e:
-        MutateFail(mol)
-        return False
-    #from molvs.tautomer import TautomerCanonicalizer
-    #t = TautomerCanonicalizer()
-    #t.canonicalize(mol)
-    mol.SetBoolProp('tautomerized', True)
-    smi2 = Chem.MolToSmiles(mol)
+        raise MutateFail(mol)
+    smi2 = Chem.MolToSmiles(molnew)
 
-    if not smi1 == smi2: print "tautomerized:", smi1, 'to:', smi2
-    return True
+    if smi1 == smi2:
+        # we return mol because it contains some properties
+        # tautomerized mols need to get the props again
+        mol.SetBoolProp('tautomerized', True)
+        return mol
+    else:
+        if not aromatic:
+            Chem.Kekulize(molnew, True)
+        if mol.HasProp('failedfilter'):
+            ff = mol.GetProp('failedfilter')
+            molnew.SetProp('failedfilter', ff)
+        print "tautomerized:", smi1, 'to:', smi2
+        molnew.SetBoolProp('tautomerized', True)
+        return molnew
 
 
 ####### Complex Ring Functions
@@ -466,7 +481,8 @@ class ConformerGenerator(object):
                 name = mol.GetProp('_Name')
                 msg += ' "{}".'.format(name)
             else:
-                msg += '.'
+                smi = Chem.MolToSmiles(mol)
+                msg += '. ({smi})'.format(smi=smi)
             raise RuntimeError(msg)
 
         # minimization and pruning
