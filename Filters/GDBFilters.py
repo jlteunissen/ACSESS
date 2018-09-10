@@ -260,6 +260,8 @@ AllFilters['triple bond in ring'].SetFixRoutine(FixTripleBondInRing)
 # Assumes that the first heteroatom found is
 # the one that we want to remove
 def FixByRemovingHeteroatoms(mol, filter):
+#    return True # this is a debugging trick remove this!
+#def FixByRemovingHeteroatoms2(mol, filter):
     changed = False
     Chem.SetAromaticity(mol)
     matches = filter.FilterWithExceptions(mol)
@@ -388,7 +390,8 @@ newfilt.SetExceptions([
     Chem.MolFromSmarts('N#CC=CN'),
     Chem.MolFromSmarts('C=CNS(=O)=O'),
     Chem.MolFromSmarts('NC=CS(=O)=O'),
-    Chem.MolFromSmarts('C=CNC=S')
+    Chem.MolFromSmarts('C=CNC=S'),
+    Chem.MolFromSmarts('[#7]~[#7]~*~[#7]~[#7]')
 ])
 
 newfilt = NewPatternFilter('Enol')
@@ -490,7 +493,8 @@ newfilt.SetExceptions([
     Chem.MolFromSmarts("[c,C]=N[N&H2]"),
     Chem.MolFromSmarts("[#6]=NN=[#6]"),
     Chem.MolFromSmarts("NNC=[N,O,S]"),
-    Chem.MolFromSmarts('NNS=O')
+    Chem.MolFromSmarts('NNS=O'),
+    Chem.MolFromSmarts('[#7][#7]~*~[#7][#7]')
 ])
 
 newfilt = NewPatternFilter('HetHet_XO')

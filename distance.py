@@ -21,6 +21,7 @@ extender.__name__='extender'
 extendVariance = []
 dimRed=0
 
+
 '''
 this module include various previous modules that corresponds to chemical space
 representation and selection, including:
@@ -210,7 +211,8 @@ def HandleMolCoords(mols, std_dev=None, norm=True, _noDimRed=None):
 
     if extendCoords and extendVariance:
         j = len(coords[0]) - len(extendVariance)
-        print coords[0]
+        if debug:
+            print coords[0]
         for i, ivariancefactor in enumerate(extendVariance):
             coords[:, j+i] = coords[:, j+i] * extendVariance[i]
         #coords[:, -1] = coords[:, -1] * extendVariance
@@ -235,7 +237,7 @@ def Maximin(mols, nMol, firstpick=None, startCoords=None, verbose=False):
     '''
 
     passMols, coords = HandleMolCoords(mols, norm=normCoords)
-    print "coords[0]", coords[0]
+    #print "coords[0]", coords[0]
     #if # of mols is smaller than # of mols selected, just keep all of them
     if len(mols) <= nMol:
         if not passMols:

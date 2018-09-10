@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-debug = False
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -8,6 +7,7 @@ from molfails import MutateFail
 from rdkithelpers import *
 
 import mprms
+debug = False
 '''
 This filter.py contains all the possible filters in the previous version of
 ACSESS, in order to make the code in the cleaner way.
@@ -128,7 +128,8 @@ def FixAndFilter(mol):
 
     # 5. Set molprops
     mol.SetBoolProp('filtered', True)
-    if type(filt) is bool: filt = {True: 'unknown', False: ''}[filt]
+    if type(filt) is bool:
+        filt = {True: 'unknown', False: ''}[filt]
     mol.SetProp('failedfilter', filt)
     return changed, filt
 
@@ -301,6 +302,13 @@ class NewPatternFilter(NewFilter):
         matches = list(mol.GetSubstructMatches(self.pattern))
         if not self.HasExceptions: return matches
 
+        if debug:
+            A = False
+            if self.name == 'HetHet_NN':
+                A = True
+                print "in FilterExceptions!", self.pattern, self.name, matches
+                print self.MyExceptions,
+
         # RDKit automattically return a tuple of matches, each already a tuple.
         matches = [set(match) for match in matches]
 
@@ -309,8 +317,14 @@ class NewPatternFilter(NewFilter):
         for exception in self.MyExceptions:
             exmatches = mol.GetSubstructMatches(exception)
             for exmatch in exmatches:  # for each exception substructure found:
+                if debug and A:
+                    print "exmatch:", exmatch
+                    print "matches:", matches
+                    for match in matches:
+                        print "match:", match
+                        print "match.issubset(exmatches):", match.issubset(exmatch)
                 matches = [
-                    match for match in matches if not match.issubset(exmatches)
+                    match for match in matches if not match.issubset(exmatch)
                 ]
                 if len(matches) == 0: break
             if len(matches) == 0: break

@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-debug = False
+debug = True
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import traceback
 from molfails import MutateFail
 import numpy as np
+from copy import deepcopy
 
 ########### Some global variables
 bondorder = {
@@ -27,7 +28,10 @@ def Finalize(mol, tautomerize=None, aromatic=aromaticity):
         - checks if it is a valid molecule, i.e. Sanitize step. (without aromaticity)
     '''
     # 1.
-    mol.UpdatePropertyCache()
+    try:
+        mol.UpdatePropertyCache()
+    except ValueError:
+        raise MutateFail(mol)
 
     # 2.
     RW = type(mol) == Chem.RWMol
@@ -100,7 +104,7 @@ def MolBondIsInGroup(mol, groupid):
 
 
 CanRemoveAtom = lambda atom: not atom.HasProp('protected') and not atom.HasProp('fixed')
-CanChangeAtom = lambda atom: (not atom.HasProp('group')) or atom.HasProp('grouprep')
+CanChangeAtom = lambda atom: (not atom.HasProp('group')) or atom.HasProp('grouprep') or atom.GetNumRadicalElectrons()
 
 
 def GetSmallestRingSize(atom):
@@ -172,7 +176,10 @@ def GetFreeBonds(mol, order=None, notprop=None, sides=False):
         IsOrder = lambda x: True
     ordbonds = filter(IsOrder, mol.GetBonds())
     # 2. select bonds which have at least on H at each atom
-    HasHs= lambda bond:all( atom.GetImplicitValence() for atom in (bond.GetBeginAtom(), bond.GetEndAtom()))
+    HasHs= lambda bond:all(
+            atom.GetImplicitValence() - atom.GetNumRadicalElectrons()
+            for atom in (bond.GetBeginAtom(), bond.GetEndAtom())
+            )
     withHbonds = filter(HasHs, ordbonds)
     # 3. test if not has prop notprop
     if notprop:
@@ -230,6 +237,108 @@ def Sanitize(mol, aromatic=False):
     return
 
 
+################ Resonance Structures for radical and cations:
+
+def Resonate(mol, matches):
+    # make single displacements of [+1]-*=[+0] to [+0]=*-[+1]
+    newmols = []
+    for match in matches:
+        newmol = deepcopy(mol)
+        Chem.Kekulize(newmol, True)
+        a0 = newmol.GetAtomWithIdx(match[0])
+        a0.SetFormalCharge(0)
+        for i, ai in enumerate(match[1:],1):
+            bond = newmol.GetBondBetweenAtoms(match[i-1], match[i])
+            bondtype = bond.GetBondType()
+            if bondtype==Chem.BondType.SINGLE:
+                bond.SetBondType(Chem.BondType.DOUBLE)
+            else:
+                assert bondtype==Chem.BondType.DOUBLE
+                bond.SetBondType(Chem.BondType.SINGLE)
+        alast = newmol.GetAtomWithIdx(match[-1])
+        alast.SetFormalCharge(1)
+        newmols.append(newmol)
+    return newmols
+
+
+def FullyResonate(mol, idx):
+    # find a conjugated cation.
+    cationpattern1 = Chem.MolFromSmarts('[+1]~*=*')
+
+    radpositions = set()
+    radpositions.add(idx)
+
+    Chem.Kekulize(mol, True)
+
+    # make a selection of resonant structures including our initial molecule:
+    mols = [mol]
+    while True:
+        l1 = len(radpositions)
+        for mol in mols:
+            matches = mol.GetSubstructMatches(cationpattern1)
+
+            # restrict matches if atoms were already conjugated:
+            newmatches = []
+            for match in matches:
+                if not match[-1] in radpositions:
+                    newmatches.append(match)
+                    radpositions.add(match[-1])
+            if newmatches:
+                newstructs = Resonate(mol, newmatches)
+            else:
+                newstructs = []
+            mols.extend(newstructs)
+        l2 = len(radpositions)
+        # if no new conjugated atoms where found:
+        if l1==l2:
+            break
+    return mols
+
+def SelectResonanceStructure(mol):
+    smi1 = Chem.MolToSmiles(mol)
+    doublet = False
+    idx = None
+
+    # convert radical to cation
+    for a in mol.GetAtoms():
+        if a.GetNumRadicalElectrons()==1:
+            doublet = True
+            idx = a.GetIdx()
+            a.SetNumRadicalElectrons(0)
+            a.SetFormalCharge(1)
+    if idx is None:
+        print "no idx!", Chem.MolToSmiles(mol)
+
+    # here do resonance enumeration
+    if False: # this should work in RDKit but it doesn't
+        resSuppl = list(Chem.ResonanceMolSupplier(mol, flags=Chem.KEKULE_ALL))
+        print "n resonance:", len(resSuppl), "for", Chem.MolToSmiles(mol)
+        newmol = np.random.choice(resSuppl)
+    else:
+        newmols = FullyResonate(mol, idx)
+        #print "n resonance:", len(newmols), "for", Chem.MolToSmiles(mol)
+        newmol = np.random.choice(newmols)
+
+    # reconvert to radical
+    if doublet:
+        for a in newmol.GetAtoms():
+            if not a.GetFormalCharge()==0:
+                a.SetNumRadicalElectrons(1)
+                a.SetFormalCharge(0)
+    Chem.Kekulize(newmol, True)
+
+    smi2 = Chem.MolToSmiles(newmol)
+    if not smi1==smi2:
+        pass
+        #print "from {} took resonant {}".format(smi1, smi2)
+
+    try:
+        Finalize(newmol)
+    except (ValueError, MutateFail) as e:
+        return mol
+    return newmol
+
+
 ########## TAUTOMERIZING:
 
 
@@ -239,6 +348,8 @@ def Tautomerize(mol, aromatic=aromaticity):
     except KeyError:
         pass
 
+
+    Chem.SanitizeMol(mol)
     if not (aromatic or aromaticity):
         Chem.Kekulize(mol, True)
 
@@ -263,9 +374,9 @@ def Tautomerize(mol, aromatic=aromaticity):
         if mol.HasProp('failedfilter'):
             ff = mol.GetProp('failedfilter')
             molnew.SetProp('failedfilter', ff)
-        print "tautomerized:", smi1, 'to:', smi2
+        #print "tautomerized:", smi1, 'to:', smi2
         with open('tautomerized.smi', 'a') as f:
-            f.write("{} {}".format(smi1, smi2))
+            f.write("{} {}\n".format(smi1, smi2))
         molnew.SetBoolProp('tautomerized', True)
         return molnew
 

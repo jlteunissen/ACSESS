@@ -98,6 +98,11 @@ newfilt.SetFilterPattern(Chem.MolFromSmarts("n~n~[#7]"))
 #newfilt.SetFixRoutine(FixByRemovingHeteroatoms)
 ExtraFilters['nnn'] = newfilt
 
+newfilt = NewPatternFilter('NNN')
+newfilt.SetFilterPattern(Chem.MolFromSmarts("[#7]~[#7]~[#7]"))
+#newfilt.SetFixRoutine(FixByRemovingHeteroatoms)
+ExtraFilters['NNN'] = newfilt
+
 ############################################################
 #       Functions from QiuFilter.py
 ############################################################
