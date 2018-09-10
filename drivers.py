@@ -34,13 +34,16 @@ KeepNoGeomPool = True
 maxPool = 1000
 EdgeLen = 10
 EdgeRatio = 0.1
+resonance = False
+
 _tautomerEnumerator = None
+
 
 debug = False
 
 def Init():
     global _tautomerEnumerator
-    if mprms.canonicalTautomer:
+    if hasattr(mprms, 'canonicalTautomer') and mprms.canonicalTautomer:
         from molvs.tautomer import TautomerEnumerator
         _tautomerEnumerator = TautomerEnumerator()
         print "_tautomerEnumerator:", _tautomerEnumerator
@@ -95,12 +98,11 @@ def DriveMutations(lib):
 
         # optionally select a random tautomer
         if _tautomerEnumerator:
-            smi1 = Chem.MolToSmiles(candidate)
-            candidate = random.choice(_tautomerEnumerator(candidate))
-            Chem.Kekulize(candidate, True)
-            smi2 = Chem.MolToSmiles(candidate)
-            if not smi1==smi2:
-                print "from canonical {} using random tautomer {}".format(smi1, smi2)
+            candidate = SelectTautomer(candidate)
+
+        # optionally select a random resonance_structure
+        if resonance:
+            candidate = SelectResonanceStructure(candidate)
 
         # try to find a correct mutation
         try:
@@ -162,8 +164,11 @@ def DriveFilters(lib, Filtering, GenStrucs):
                 filters.FixAndFilter(mol)
                 assert mol.HasProp('failedfilter')
                 if debug:
-                    if not mol.HasProp('failedfilter'): print "Jos Error",
-                    else: print "ff:", mol.GetProp('failedfilter'),
+                    if not mol.HasProp('failedfilter'):
+                        print "Jos Error",
+                    else:
+                        if mol.GetProp('failedfilter'):
+                            print "FaFi:", mol.GetProp('failedfilter'),
             else:
                 assert mol.GetBoolProp('filtered') == True
                 mol.SetProp('failedfilter', '')
@@ -291,7 +296,12 @@ def GetScore(mol):
 
 
 def RemoveDuplicates(lib):
+    def verify_isosmi(mol):
+        if not mol.HasProp('isosmi'):
+            mol.SetProp('isosmi', Chem.MolToSmiles(mol))
+    map(verify_isosmi, lib)
     lib.sort(key=lambda x: x.GetProp('isosmi'))
+
     i = 1
     while i < len(lib):
         #print len(lib),
@@ -316,6 +326,16 @@ def RemoveDuplicates(lib):
 
 ############ MUTATIONS INTERFACE: ############
 
+def SelectTautomer(candidate):
+    smi1 = Chem.MolToSmiles(candidate)
+    tautomers = _tautomerEnumerator(candidate)
+    candidate = random.choice(tautomers)
+    Chem.Kekulize(candidate, True)
+    smi2 = Chem.MolToSmiles(candidate)
+    if not smi1==smi2 and len(tautomers)>1:
+        #print "from canonical {} using random tautomer {} of total {}".format(smi1, smi2, len(tautomers))
+        pass
+    return candidate
 
 # Mutation driver
 #@captureMolExceptions
@@ -376,7 +396,7 @@ def SingleMutate(candidateraw):
             Chem.Kekulize(candidate, True)
             bonds = list(GetBonds(candidate, notprop='group'))
             mutate.FlipBond(candidate, random.choice(bonds))
-            canditate = Finalize(candidate, tautomerize=False, aromatic=False)
+            candidate = Finalize(candidate, tautomerize=False, aromatic=False)
         except MutateFail:
             stats['nFlipFail'] += 1
 
@@ -471,6 +491,7 @@ def SingleMutate(candidateraw):
 
     # 7. Add aromatic ring to a bond
     if random.random() < p_AddAroRing:
+        if debug: print "7",
         freesinglebonds = GetFreeBonds(candidate, order=1, sides=True)
         #print "freesinglebonds:", freesinglebonds
         freedoublebonds = GetFreeBonds(candidate, order=2, notprop='group')
@@ -498,6 +519,7 @@ def SingleMutate(candidateraw):
 
     # 8. Add aromatic ring to two rings
     if random.random() < p_AddFusionRing:
+        if debug: print "8",
         try:
             p = Chem.MolFromSmarts('[h]@&=*(@*)@[h]')
             matches = candidate.GetSubstructMatches(p)
@@ -507,6 +529,8 @@ def SingleMutate(candidateraw):
             if matches:
                 stats['nAddArRing'] += 1
                 match = random.choice(matches)
+                if candidate.GetAtomWithIdx(match[-1]).GetNumRadicalElectrons():
+                    raise MutateFail
                 try:
                     candidate = mutate.AddFusionRing(candidate, match)
                     return candidate

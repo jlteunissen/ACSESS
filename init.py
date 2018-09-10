@@ -219,6 +219,10 @@ def StartLibAndPool(restart):
 
     ######### sanitize lib & pool
     ll1, lp1 = (len(lib), len(pool))
+    for libje in (lib, pool):
+        for mol in libje:
+            if not Sane(mol):
+                print "unsane:", Chem.MolToSmiles(mol)
     lib = filter(Sane, lib)
     pool = filter(Sane, pool)
     ll2, lp2 = (len(lib), len(pool))

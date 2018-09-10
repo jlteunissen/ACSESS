@@ -31,8 +31,10 @@ def Init():
     #change from set to list
     elements = list(elements)
     halogens = list(halogens)
-    print "elements:", elements
-    print "halogens:", halogens
+    if halogens:
+        print "elements:", elements
+        print "halogens:", halogens
+    return
 
 
 ###############################################################################
@@ -239,7 +241,7 @@ def EmptyValence(atom):
             print atom.GetAtomicNum()
             raise
 
-    return maxv - atom.GetExplicitValence()
+    return maxv - atom.GetExplicitValence() - atom.GetNumRadicalElectrons()
 
 
 ###############################################################################
@@ -278,9 +280,13 @@ def FlipBond(mol, bond):
 def SwitchAtom(mol, atom):
     if atom.HasProp('group') and not atom.HasProp('grouprep'):
         raise MutateFail(mol, 'protected or grouped atom passed to switchatom')
+    #elif atom.GetNumRadicalElectrons():
+    #    raise MutateFail(mol, 'we do not allow radical center to be changed')
 
     changed = False
     neighbors=list(atom.GetNeighbors())
+    valence = atom.GetExplicitValence() + atom.GetNumRadicalElectrons()
+    #valence = atom.GetExplicitValence()
 
     # # # # # # # # # # # # #
     # from Filters import OptSulfone
@@ -317,7 +323,7 @@ def SwitchAtom(mol, atom):
 
     # Add a halogen, if possible
     # we only add halogens when neighbor and neighbor-neighbor only C
-    if atom.GetExplicitValence()==1:
+    if valence==1:
         if (len(halogens)>0
         and random.random()>0.6
         and neighbors[0].GetAtomicNum()==6):
@@ -344,7 +350,7 @@ def SwitchAtom(mol, atom):
 
     for itry in range(50):
         cand = random.choice(elems)
-        if MaxValence[cand] >= atom.GetExplicitValence():
+        if MaxValence[cand] >= valence:
             atom.SetAtomicNum(cand)
             return
 
@@ -447,8 +453,10 @@ def RemoveAtom(mol, atom):
     if atom.HasProp('protected') or atom.HasProp('fixed'):
         raise MutateFatal(mol,
                           'Protected or fixed atom passed to' + " RemoveAtom.")
-    Degree = atom.GetDegree()
-    if debug: print "D{:d}".format(Degree)
+    Degree = atom.GetDegree() + atom.GetNumRadicalElectrons()
+    if debug:
+        print "D{:d}".format(Degree),
+        print Chem.MolToSmiles(mol), atom.GetNumRadicalElectrons(), atom.GetAtomicNum(),
 
     # If atom is the representative of a larger group (e.g. N in nitro group)
     # delete the entire group
@@ -560,6 +568,10 @@ def RemoveAtom(mol, atom):
         mol = Finalize(mol, aromatic=False)
     except Exception as e:
         print "in Remove Atom with:", Chem.MolToSmiles(mol, True), e
+
+    if debug: # print a file with the results from these mutations:
+        with open('delatoms.smi','a') as f:
+            f.write(Chem.MolToSmiles(mol) + '\n')
     return mol
 
 
@@ -574,10 +586,13 @@ def AddArRing(mol, bond):
         raise MutateFail
 
     #print "in AddArRing!", Chem.MolToSmiles(mol)
-
-    def AwithLabel(label):
-        return filter(lambda atom: atom.HasProp(label),
-                      mol.GetAtoms())[0].GetIdx()
+    def AwithLabel(label, idx=True):
+        atom = filter(lambda atom: atom.HasProp(label),
+                      mol.GetAtoms())[0]
+        if idx:
+            return atom.GetIdx()
+        else:
+            return atom
 
     butadiene = Chem.MolFromSmiles('C=CC=C')
     butadiene.GetAtomWithIdx(0).SetBoolProp('buta1', True)
@@ -590,14 +605,22 @@ def AddArRing(mol, bond):
         mol.AddBond(AwithLabel('buta2'), AwithLabel('ah2'), bondorder[1])
     except RuntimeError:
         raise MutateFail
-    #print "Finished AddArRing!", Chem.MolToSmiles(mol)
+    finally:
+        for prop in ['buta1', 'buta2', 'ah1', 'ah2']:
+            AwithLabel(prop, idx=False).ClearProp(prop)
+    #print "Finished AddFusionRing!", Chem.MolToSmiles(mol)
     return mol
+
 
 def AddFusionRing(mol, match):
 
-    def AwithLabel(label):
-        return filter(lambda atom: atom.HasProp(label),
-                      mol.GetAtoms())[0].GetIdx()
+    def AwithLabel(label, idx=True):
+        atom = filter(lambda atom: atom.HasProp(label),
+                      mol.GetAtoms())[0]
+        if idx:
+            return atom.GetIdx()
+        else:
+            return atom
 
     propene = Chem.MolFromSmiles('C=CC')
     propene.GetAtomWithIdx(0).SetBoolProp('propane1', True)
@@ -610,6 +633,9 @@ def AddFusionRing(mol, match):
         mol.AddBond(AwithLabel('propane2'), AwithLabel('ah2'), bondorder[1])
     except RuntimeError:
         raise MutateFail
+    finally:
+        for prop in ['propane1', 'propane2', 'ah1', 'ah2']:
+            AwithLabel(prop, idx=False).ClearProp(prop)
     #print "Finished AddFusionRing!", Chem.MolToSmiles(mol)
     return mol
 

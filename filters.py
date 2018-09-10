@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
-debug = False
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -8,6 +7,7 @@ from molfails import MutateFail
 from rdkithelpers import *
 
 import mprms
+debug = False
 '''
 This filter.py contains all the possible filters in the previous version of
 ACSESS, in order to make the code in the cleaner way.
@@ -23,8 +23,8 @@ previous filters included:
 
 Note from Jos:
     I don't think it is possible to include and combine every filter into this module
-    since this module would become unmanageable. We could make a filters subfolder to 
-    order them. 
+    since this module would become unmanageable. We could make a filters subfolder to
+    order them.
 '''
 '''
 Some clearification:
@@ -33,8 +33,8 @@ Some clearification:
     or not (False)
 
     Every filterflavor-module has a dictionary which is formatted as:
-    filterfunction might be a filterclass with a __call__ attribute though.
     {'filtername1':filterfunction1, 'filtername2':filterfunction2, ... }
+    filterfunction might be a filterclass with a __call__ attribute!
 '''
 
 ActiveFilters = dict()
@@ -128,7 +128,8 @@ def FixAndFilter(mol):
 
     # 5. Set molprops
     mol.SetBoolProp('filtered', True)
-    if type(filt) is bool: filt = {True: 'unknown', False: ''}[filt]
+    if type(filt) is bool:
+        filt = {True: 'unknown', False: ''}[filt]
     mol.SetProp('failedfilter', filt)
     return changed, filt
 
@@ -284,8 +285,6 @@ class NewPatternFilter(NewFilter):
         else:
             return False
 
-    #def SetFilterRoutine(self,*args,**kwargs): raise NotImplementedError()
-
     def SetFilterPattern(self, pattern):
         self.pattern = pattern
 
@@ -301,16 +300,28 @@ class NewPatternFilter(NewFilter):
         matches = list(mol.GetSubstructMatches(self.pattern))
         if not self.HasExceptions: return matches
 
+        if debug:
+            A = False
+            if self.name == 'HetHet_NN':
+                A = True
+                print "in FilterExceptions!", self.pattern, self.name, matches
+                print self.MyExceptions,
+
         # RDKit automattically return a tuple of matches, each already a tuple.
         matches = [set(match) for match in matches]
 
         # Remove matches that are substructures of exceptions
-        # NOT TESTED:
         for exception in self.MyExceptions:
             exmatches = mol.GetSubstructMatches(exception)
             for exmatch in exmatches:  # for each exception substructure found:
+                if debug and A:
+                    print "exmatch:", exmatch
+                    print "matches:", matches
+                    for match in matches:
+                        print "match:", match
+                        print "match.issubset(exmatches):", match.issubset(exmatch)
                 matches = [
-                    match for match in matches if not match.issubset(exmatches)
+                    match for match in matches if not match.issubset(exmatch)
                 ]
                 if len(matches) == 0: break
             if len(matches) == 0: break
