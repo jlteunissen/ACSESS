@@ -108,7 +108,7 @@ def ApplyCutOff(totallib, gen):
                 if mol.GetDoubleProp('Objective') * minsign <= cutoff * minsign
               ]
     Nafter = len(newpool)
-    
+
     # apply correction to cutoff if cutoff is too harsh
     if minNMol:
         # don't let the total number of mols drop below a certain number:
@@ -120,7 +120,7 @@ def ApplyCutOff(totallib, gen):
             print "cutoff would remove more than {:d}%.".format(int(100*maxRemove))
             newpool = totallib[:-int(Nbefore * maxRemove)]
 
-    if Nafter == 0:
+    if len(newpool) == 0:
         raise ValueError('No compounds left after cutoff!')
     return newpool
 

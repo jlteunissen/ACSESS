@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#-*- coding: utf-8 -*-
 ''' This module acts as an interface between ACSESS and CINDES
     The expected input:
     - list of Chem.Mol objects

@@ -9,6 +9,7 @@ from rdkithelpers import *
 import mprms
 import importlib
 import random
+import numpy as np
 
 
 ######################################################
@@ -33,6 +34,7 @@ def Initialize():
     else:
         mprms.rseed = random.randint(1, 1000)
         random.seed(mprms.rseed)
+        np.random.seed(mprms.rseed)
     print "random seed:", mprms.rseed
 
     # Set RDKit verbosity
