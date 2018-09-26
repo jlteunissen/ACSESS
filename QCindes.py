@@ -19,6 +19,7 @@ from helpers import Compute3DCoords, xyzfromrdmol
 #s3d.S3DInit()
 
 from CINDES.utils.molecule import SmiMolecule
+from CINDES.utils.writings import log_io
 table = None
 run = None
 minimize = False  #Minimizing or maximizing the objective function?
@@ -94,22 +95,26 @@ def calculate(rdmols, QH2=False, gen=0):
     #3. calculate final objectives
     set_target_properties(mols, run)
 
+    # 4. Do the administration
+    loggings(mols, table)
+
+    return
+
+@log_io()
+def loggings(mols, table):
     # Optional. log results to screen
     if True:
         from CINDES.INDES.loggings import log_screen
         log_screen(mols)
 
-    #4. set the results as attributes from the rdmols
+    # set the results as attributes from the rdmols
     for mol in mols:
         mol.rdmol.SetDoubleProp('Objective', float(mol.Pvalue))
 
     print "logging table..."
     from CINDES.INDES.loggings import log_table
     log_table(mols, table)
-
     return
-
-
 
 
 def xyzfromstring(string):

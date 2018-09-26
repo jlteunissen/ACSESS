@@ -16,7 +16,7 @@ _sumhelper = None
 # global variables
 minimize = False  #Minimizing or maximizing the objective function?
 compGeom = False  #Does objective function require 3d structure?
-TargetScore = None
+TargetScore = 0.0
 FixedCutoff = False
 InitialCutoff = 0.0
 TakeFittest = 1

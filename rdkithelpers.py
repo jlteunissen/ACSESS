@@ -256,7 +256,9 @@ def Resonate(mol, matches):
                 assert bondtype==Chem.BondType.DOUBLE
                 bond.SetBondType(Chem.BondType.SINGLE)
         alast = newmol.GetAtomWithIdx(match[-1])
+        #nH = alast.GetNumImplicitHs() + alast.GetNumExplicitHs()
         alast.SetFormalCharge(1)
+        #alast.SetNumExplititHs(nH)
         newmols.append(newmol)
     return newmols
 

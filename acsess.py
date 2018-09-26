@@ -24,6 +24,7 @@ from similarity import NNSimilarity
 # set global variables:
 _iterhead = "\n-------------------- Iteration {0} ----------------\n"
 _gridAssign = None
+writeInterval=1
 
 def initiate():
     global startiter, lib, pool, _gridAssign
@@ -111,7 +112,7 @@ def evolve():
         with open('mylib.smi', 'w') as f:
             for i, mol in enumerate(lib):
                 f.write(Chem.MolToSmiles(mol) + ' {:d}\n'.format(i))
-        if gen % mprms.writeInterval == 0 or gen == mprms.nGen - 1:
+        if gen % writeInterval == 0 or gen == mprms.nGen - 1:
             DumpMols(lib, gen)
         DumpMols(pool)
         stats['diversity'] = siml

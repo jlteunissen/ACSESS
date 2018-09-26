@@ -12,6 +12,10 @@ import random, sys
 from output import logtime, StartTimer, EndTimer, stats
 import output
 
+###### number of mutations
+nMut = 0
+nCross = 0
+
 ###### mutation probabilities:
 p_BondFlip = 0.8
 p_AtomFlip = 0.8
@@ -65,9 +69,9 @@ def DriveMutations(lib):
     print "crossovers...",
     sys.stdout.flush()
     newmols = []
-    for i in xrange(min(mprms.nCross, len(lib) - 1)):
+    for i in xrange(min(nCross, len(lib) - 1)):
         try:
-            if i < mprms.nCross * EdgeRatio and EdgeLen > 0:
+            if i < nCross * EdgeRatio and EdgeLen > 0:
                 mol1 = random.choice(lib[:EdgeLen])
                 mol2 = random.choice(lib + newmols)
             else:
@@ -89,9 +93,9 @@ def DriveMutations(lib):
     # 2. MUTATIONS
     print "mutating...",
     sys.stdout.flush()
-    for i in xrange(mprms.nMut):
+    for i in xrange(nMut):
         # choose random mol:
-        if i < mprms.nMut * EdgeRatio and EdgeLen > 0:
+        if i < nMut * EdgeRatio and EdgeLen > 0:
             candidate = Chem.Mol(random.choice(lib[:EdgeLen]))
         else:
             candidate = Chem.Mol(random.choice(lib + newmols))
