@@ -5,10 +5,11 @@
 '''
 from molfails import *
 from rdkithelpers import *
-import mutate
+import mutate, crossover
 import filters
 import mprms
 import random, sys
+random.seed(2)
 from output import logtime, StartTimer, EndTimer, stats
 import output
 
@@ -65,6 +66,7 @@ def SetIterationWorkflow(gen):
 def DriveMutations(lib):
     global stats
     nDups, nExcp, nCand = (0, 0, 0)
+
     # 1. CROSSOVERS:
     print "crossovers...",
     sys.stdout.flush()
@@ -77,7 +79,8 @@ def DriveMutations(lib):
             else:
                 mol1 = random.choice(lib + newmols)
                 mol2 = random.choice(lib + newmols)
-            candidate = mutate.Crossover(mol1, mol2)
+            #candidate = mutate.Crossover(mol1, mol2)
+            candidate = crossover.Crossover(mol1, mol2)
             if type(candidate) == Chem.RWMol: candidate = candidate.GetMol()
             candidate = Finalize(candidate, aromatic=False)
             newmols.append(candidate)

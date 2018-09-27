@@ -58,6 +58,7 @@ def Initialize():
     _modules = [
         'acsess',
         'mutate',
+        'crossover',
         'filters',
         'Filters.DefaultFilters',
         'Filters.ExtraFilters',
