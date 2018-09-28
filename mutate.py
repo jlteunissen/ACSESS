@@ -5,6 +5,7 @@ import random
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkithelpers import *
+from output import stats
 from molfails import MutateFail
 #import mprms
 
@@ -12,6 +13,22 @@ MAXTRY = 100
 elements = []
 maxWeight = 0
 MxAtm = 0
+
+###### mutation probabilities:
+mutationtypes = ['FlipAtom', 'FlipBond', 'AddAtom', 'AddBond', 'DelAtom', 'DelBond', 'AddAroRing', 'AddFusionRing']
+mutators = dict()
+
+p_FlipAtom = 0.8
+p_FlipBond= 0.8
+p_AddAtom= 0.5  #Actual probability: (.8*.7)*.5=.28
+p_AddBond= 0.1
+p_DelAtom = 0.8  #Actual probability: .224
+p_DelBond = 0.2  #actual probability=.8*.3=.24
+p_AddAroRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
+p_AddFusionRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
+
+MutateStereo = False
+StereoFlip = 0.2
 
 debug = False
 
@@ -22,7 +39,7 @@ debug = False
 
 def Init():
     #elements = mprms.elements
-    global elements, halogens
+    global elements, halogens, mutators
     halogens = [9, 17, 35, 53]
 
     #do intersection and difference
@@ -34,6 +51,16 @@ def Init():
     if halogens:
         print "elements:", elements
         print "halogens:", halogens
+
+    for mutationtype in mutationtypes:
+        p = globals()["p_{}".format(mutationtype)]
+        if p==0.0:
+            print mutationtype, "deleted"
+            del mutators[mutationtype]
+        else:
+            mutators[mutationtype].p = p
+            print "mutation {:13s} set with probability {:3.2f}".format(mutationtype, p)
+
     return
 
 #########################################
@@ -89,12 +116,92 @@ def EmptyValence(atom):
 #     Nota Bene! These mol objects are now based on Chem.RWMol objects!       #
 ###############################################################################
 
+# Mutation driver
+def MakeMutations(candidate):
+    ''' The mutations, based on not-aromatic SMILES'''
+    # 1. Kekulize:
+    try:
+        Chem.Kekulize(candidate, True)
+    except ValueError:
+        print "MakeMutation. Kekulize Error:", Chem.MolToSmiles(candidate)
+        raise MutateFail(candidate)
+    # 2. Mutate
+    candidate = SingleMutate(candidate)
+    # 3. SetAromaticity again
+    try:
+        if aromaticity: Chem.SetAromaticity(candidate)
+        candidate = Finalize(candidate, tautomerize=False)
+    except ValueError:
+        print "MakeMutation. SetAromaticity Error:", Chem.MolToSmiles(
+            candidate)
+        raise MutateFail(candidate)
+    return candidate
 
-# 1. Flip a bond order
-#@captureMolExceptions
-def FlipBond(mol, bond):
-    if bond.HasProp('group'):
-        raise MutateFail(mol, 'In-group bond passed to FlipBond')
+def SingleMutate(candidateraw):
+    if candidateraw is None: raise ValueError('candidate is none')
+    else: candidate = Chem.RWMol(candidateraw)
+    global stats
+
+    parent = candidate.GetProp('isosmi')
+    ResetProps(candidate)
+    change = False
+    candidate.SetProp('parent', parent)
+
+    for mutationtype, mutator in mutators.items():
+        if random.random() < mutator.p:
+            change = True
+            stats[mutator.nname] += 1
+            try:
+                candidate = mutator(candidate)
+            except MutateFail:
+                stats[mutator.nnameFail] += 1
+
+    if not change:
+        stats['nNoMutation'] += 1
+        raise MutateFail()
+    return candidate
+
+
+class Mutator(object):
+    def __init__(self, mutator, p=0.0, nname=None):
+        if not callable(mutator):
+            raise TypeError('mutator is not callabe')
+        self.mutator = mutator
+        self.name = mutator.__name__
+        self.p = p
+        if nname is None:
+            self.nname = "n{}".format(self.name)
+        self.nnameFail = "{}Fail".format(self.nname)
+        return
+
+    def __call__(self, mol):
+        Chem.Kekulize(mol, True)
+        
+        try:
+            mol = self.mutator(mol)
+        except MutateFail:
+            pass
+        except Exception as e:
+            print self.mutator
+            print self.name
+            raise
+
+        if mol is None:
+            raise MutateFail()
+
+        mol = Finalize(mol, tautomerize=False, aromatic=False)
+        return mol
+
+    def __str__(self):
+        return "Mutator: {}".format(self.name)
+
+    def __repr__(self):
+        return self.__str__()
+
+def FlipBond(mol):
+    bonds = list(GetBonds(mol, notprop='group'))
+    if len(bonds)==0: raise MutateFail()
+    bond = random.choice(bonds)
     oldorder = int(bond.GetBondTypeAsDouble())
     atom1 = bond.GetBeginAtom()
     atom2 = bond.GetEndAtom()
@@ -113,52 +220,16 @@ def FlipBond(mol, bond):
         add = random.choice((-1, 1))
     bond.SetBondType(bondorder[oldorder + add])
     return mol
+mutators['FlipBond'] = Mutator(FlipBond)
 
-
-#@captureMolExceptions
-def SwitchAtom(mol, atom):
-    if atom.HasProp('group') and not atom.HasProp('grouprep'):
-        raise MutateFail(mol, 'protected or grouped atom passed to switchatom')
-    #elif atom.GetNumRadicalElectrons():
-    #    raise MutateFail(mol, 'we do not allow radical center to be changed')
+def FlipAtom(mol):
+    atoms = filter(CanChangeAtom, mol.GetAtoms())
+    if len(atoms)==0: raise MutateFail()
+    atom = random.choice(atoms)
 
     changed = False
     neighbors=list(atom.GetNeighbors())
     valence = atom.GetExplicitValence() + atom.GetNumRadicalElectrons()
-    #valence = atom.GetExplicitValence()
-
-    # # # # # # # # # # # # #
-    # from Filters import OptSulfone
-    # Special rules for sulfurs that can optionally be sulfones
-    #if atom.GetAtomicNum()==16 and len(OptSulfone)>0:
-    #    SulfCand=set()
-    #    for group in OptSulfone:
-    #        for match in mol.GetSubstructMatches(group, True):
-    #            for mat in GetIAtoms(match, mol):
-    #                if mat.target.IsSulfur(): SulfCand.add(mat.target)
-    #    if atom in SulfCand and random.random()>0.4:
-    #        if atom.HasProp('grouprep'):
-    #            RemoveGroup(mol,atom.GetProp('group'))
-    #            return
-    #        elif not atom.HasProp('group'):
-    #            MakeSulfone(mol,atom)
-    #            return
-
-    #If it's a group representative, switching it will delete the
-    #rest of the group; since they're hard to create, they're also
-    #hard to destroy
-    #if atom.HasProp('grouprep':
-    #    if random.random()>0.3:
-    #        RemoveGroup(mol,atom.GetProp('group'))
-    #        changed=True
-    #    else:
-    #        raise MutateFail()
-
-    # # # # # # # # # # # # # #
-    #Special cases for Nitro groups and halogens,
-    #which can only be on aromatic rings
-    #if (  atom.GetExplicitValence()==1
-    #      and neighbors[0].IsAromatic() ):
 
     # Add a halogen, if possible
     # we only add halogens when neighbor and neighbor-neighbor only C
@@ -177,11 +248,6 @@ def SwitchAtom(mol, atom):
                 atom.SetAtomicNum( random.choice(halogens))
                 return
 
-    # If not a halogen, maybe make a nitro group
-    #    if random.random() < 0.15:
-    #        MakeNitro(mol,atom)
-    #        return
-
     # # # # # # # # #
     # Regular atom switching
     atnum = atom.GetAtomicNum()
@@ -196,13 +262,9 @@ def SwitchAtom(mol, atom):
     if not changed:
         raise MutateFail()  # if here, mutation failed ...
     return mol
+mutators['FlipAtom'] = Mutator(FlipAtom)
 
-
-#@captureMolExceptions
 def AddBond(mol):
-    # NB! This function was overloaded and atoms where possible arguments
-    # Not anymore possible to get a cleaner interface
-
     natoms = mol.GetNumAtoms()
     if natoms < 5: raise MutateFail()  #don't create 4-member rings
 
@@ -240,26 +302,36 @@ def AddBond(mol):
         return mol
     # if here, mutation failed
     raise MutateFail()
+mutators['AddBond']=Mutator(AddBond)
 
+def DelBond(mol):
+    bondringids = mol.GetRingInfo().BondRings()
 
-########################################################
-# Remove a bond. Obviously, the bond must be in a cycle,
-# or the molecule would be rent in twain
-#@captureMolExceptions
-def RemoveBond(mol, bond):
-    if bond.HasProp('group'):
-        raise MutateFail(mol,
-                         'Protected bond (in group) passed to RemoveBond.')
-    if not bond.IsInRing():
-        raise MutateFail(mol, 'Non-ring bond passed to RemoveBond')
+    # need to flatten bondringids:
+    if len(bondringids)>0:
+        # fancy manner to flatten a list of tuples with possible duplicates
+        #bondringids = set.intersection(*map(set, bondringids))
+        bondringids = set.union(*map(set, bondringids))
+        bonds = GetIBonds(bondringids, mol, notprop='group')
+    else:
+        raise MutateFail()
+    try:
+        bond = random.choice(bonds)
+    except IndexError:
+        print bondringids
+        raise
     mol.RemoveBond(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
+
     return mol
+mutators['DelBond'] = Mutator(DelBond)
 
+def AddAtom(mol):
+    # 5. add an atom
+    atoms = GetAtoms(mol, notprop='protected')
+    bonds = GetBonds(mol, notprop='group')
+    if len(atoms)<1: raise MutateFail()
+    obj = random.choice(atoms + bonds)
 
-#################################################################
-# Add an atom, either in a bond, or on a side-chain or terminus
-#@captureMolExceptions
-def AddAtom(mol, obj):
     # If passed a bond, insert an atom into it
     if type(obj) == Chem.Bond:
         if obj.HasProp('group'):
@@ -282,26 +354,18 @@ def AddAtom(mol, obj):
     else:
         raise MutateFail()
     return mol
+mutators['AddAtom'] = Mutator(AddAtom)
 
 
-#@captureMolExceptions
-def RemoveAtom(mol, atom):
-    #
-    # Deal with special groups
-    #
-    if atom.HasProp('protected') or atom.HasProp('fixed'):
-        raise MutateFatal(mol,
-                          'Protected or fixed atom passed to' + " RemoveAtom.")
+def DelAtom(mol):
+    inismi = Chem.MolToSmiles(mol)
+    atoms = filter(CanRemoveAtom, mol.GetAtoms())
+    if len(atoms)==1:
+        raise MutateFail()
+
+    atom = random.choice(atoms)
+
     Degree = atom.GetDegree() + atom.GetNumRadicalElectrons()
-    if debug:
-        print "D{:d}".format(Degree),
-        print Chem.MolToSmiles(mol), atom.GetNumRadicalElectrons(), atom.GetAtomicNum(),
-
-    # If atom is the representative of a larger group (e.g. N in nitro group)
-    # delete the entire group
-    if atom.HasProp('grouprep'):
-        groupnum = atom.GetProp('group')
-        RemoveGroup(mol, groupnum)
 
     #If there's only one atom, refuse to remove it
     if len(atom.GetNeighbors()) == 0:
@@ -403,18 +467,21 @@ def RemoveAtom(mol, atom):
         except KeyError:
             raise MutateFail(mol)
 
-    try:
-        mol = Finalize(mol, aromatic=False)
-    except Exception as e:
-        print "in Remove Atom with:", Chem.MolToSmiles(mol, True), e
-
     if debug: # print a file with the results from these mutations:
         with open('delatoms.smi','a') as f:
             f.write(Chem.MolToSmiles(mol) + '\n')
     return mol
+mutators['DelAtom'] = Mutator(DelAtom)
 
+def AddAroRing(mol):
+    freesinglebonds = GetFreeBonds(mol, order=1, sides=True)
+    freedoublebonds = GetFreeBonds(mol, order=2, notprop='group')
+    triplebonds = filter(lambda bond: bond.GetBondType() == bondorder[3],
+                         mol.GetBonds())
+    correctbonds = freedoublebonds + triplebonds + freesinglebonds
+    if len(correctbonds) < 1: raise MutateFail()
+    bond = random.choice(correctbonds)
 
-def AddArRing(mol, bond):
     # if double bond
     if all( atom.GetImplicitValence() for atom in (bond.GetBeginAtom(), bond.GetEndAtom())):
         pass
@@ -422,9 +489,8 @@ def AddArRing(mol, bond):
         bond.SetBondType(bondorder[2])
     else:
         print "wrong kind of atom given"
-        raise MutateFail
+        raise MutateFail()
 
-    #print "in AddArRing!", Chem.MolToSmiles(mol)
     def AwithLabel(label, idx=True):
         atom = filter(lambda atom: atom.HasProp(label),
                       mol.GetAtoms())[0]
@@ -443,15 +509,28 @@ def AddArRing(mol, bond):
         mol.AddBond(AwithLabel('buta1'), AwithLabel('ah1'), bondorder[1])
         mol.AddBond(AwithLabel('buta2'), AwithLabel('ah2'), bondorder[1])
     except RuntimeError:
-        raise MutateFail
+        raise MutateFail()
     finally:
         for prop in ['buta1', 'buta2', 'ah1', 'ah2']:
             AwithLabel(prop, idx=False).ClearProp(prop)
-    #print "Finished AddFusionRing!", Chem.MolToSmiles(mol)
+
     return mol
+mutators['AddAroRing'] = Mutator(AddAroRing)
 
+def AddFusionRing(mol):
+    try:
+        p = Chem.MolFromSmarts('[h]@&=*(@*)@[h]')
+        matches = mol.GetSubstructMatches(p)
+    except RuntimeError:
+        raise MutateFail()
 
-def AddFusionRing(mol, match):
+    if len(matches)==0:
+        raise MutateFail()
+
+    match = random.choice(matches)
+
+    if mol.GetAtomWithIdx(match[-1]).GetNumRadicalElectrons():
+        raise MutateFail()
 
     def AwithLabel(label, idx=True):
         atom = filter(lambda atom: atom.HasProp(label),
@@ -471,12 +550,13 @@ def AddFusionRing(mol, match):
         mol.AddBond(AwithLabel('propane1'), AwithLabel('ah1'), bondorder[1])
         mol.AddBond(AwithLabel('propane2'), AwithLabel('ah2'), bondorder[1])
     except RuntimeError:
-        raise MutateFail
+        raise MutateFail()
     finally:
         for prop in ['propane1', 'propane2', 'ah1', 'ah2']:
             AwithLabel(prop, idx=False).ClearProp(prop)
-    #print "Finished AddFusionRing!", Chem.MolToSmiles(mol)
+
     return mol
+mutators['AddFusionRing'] = Mutator(AddFusionRing)
 
 
 

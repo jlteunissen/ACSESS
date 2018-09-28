@@ -17,17 +17,6 @@ import output
 nMut = 0
 nCross = 0
 
-###### mutation probabilities:
-p_BondFlip = 0.8
-p_AtomFlip = 0.8
-p_RingAdd = 0.1
-p_AddFreq = 0.5  #Actual probability: (.8*.7)*.5=.28
-p_DelFreq = 0.8  #Actual probability: .224
-p_RingRemove = 0.2  #actual probability=.8*.3=.24
-p_AddAroRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
-p_AddFusionRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
-MutateStereo = False
-StereoFlip = 0.2
 
 ##### workflow switches:
 startFilter = 2
@@ -113,7 +102,7 @@ def DriveMutations(lib):
 
         # try to find a correct mutation
         try:
-            candidate = MakeMutations(candidate)
+            candidate = mutate.MakeMutations(candidate)
             if type(candidate) == Chem.RWMol:
                 candidate = candidate.GetMol()
             try:
@@ -330,9 +319,6 @@ def RemoveDuplicates(lib):
             i += 1
     return lib
 
-
-############ MUTATIONS INTERFACE: ############
-
 def SelectTautomer(candidate):
     smi1 = Chem.MolToSmiles(candidate)
     tautomers = _tautomerEnumerator(candidate)
@@ -342,210 +328,4 @@ def SelectTautomer(candidate):
     if not smi1==smi2 and len(tautomers)>1:
         #print "from canonical {} using random tautomer {} of total {}".format(smi1, smi2, len(tautomers))
         pass
-    return candidate
-
-# Mutation driver
-#@captureMolExceptions
-def MakeMutations(candidate):
-    ''' The mutations, based on not-aromatic SMILES'''
-    # 1. Kekulize:
-    try:
-        Chem.Kekulize(candidate, True)
-    except ValueError:
-        print "MakeMutation. Kekulize Error:", Chem.MolToSmiles(candidate)
-        raise MutateFail(candidate)
-    # 2. Mutate
-    candidate = SingleMutate(candidate)
-    # 3. SetAromaticity again
-    try:
-        if aromaticity: Chem.SetAromaticity(candidate)
-        candidate = Finalize(candidate, tautomerize=False)
-    except ValueError:
-        print "MakeMutation. SetAromaticity Error:", Chem.MolToSmiles(
-            candidate)
-        raise MutateFail(candidate)
-    return candidate
-
-
-def SingleMutate(candidateraw):
-    #############################################################
-    # I still need to test if the candidate is REALLY mutated
-    # when actually a RWMol is mutated!.
-    # maybe we have to return the candidate or something?
-    #############################################################
-
-    if candidateraw is None: raise ValueError('candidate is none')
-    else: candidate = Chem.RWMol(candidateraw)
-    global stats
-
-    parent = candidate.GetProp('isosmi')
-    ResetProps(candidate)
-    change = False
-    candidate.SetProp('parent', parent)
-
-    # 0. Change Backbone
-    #If there's a mutatable backbone, call custom routines to mutate it
-    #if MutateBackbone:
-    #    try:
-    #        change=MutateBackbone(candidate)
-    #        if change:
-    #            candidate = Finalize(candidate)
-    #            return candidate
-    #    except mt.MutateFail: pass
-
-    # 1. bond-flip:
-    bonds = list(GetBonds(candidate, notprop='group'))
-    if random.random() < p_BondFlip and len(bonds) > 0:
-        if debug: print "1",
-        stats['nFlip'] += 1
-        change = True
-        try:
-            Chem.Kekulize(candidate, True)
-            bonds = list(GetBonds(candidate, notprop='group'))
-            mutate.FlipBond(candidate, random.choice(bonds))
-            candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-        except MutateFail:
-            stats['nFlipFail'] += 1
-
-    # 2. Flip atom identity
-    atoms = filter(CanChangeAtom, candidate.GetAtoms())
-    if random.random() < p_AtomFlip and len(atoms) > 0:
-        if debug: print "2",
-        stats['nAtomType'] += 1
-        change = True
-        try:
-            mutate.SwitchAtom(candidate, random.choice(atoms))
-            try:
-                candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-            except:
-                raise MutateFail
-        except MutateFail:
-            stats['nAtomTypeFail'] += 1
-
-    # 3. add a ring - either a new aromatic ring, or bond
-    # Aromatic ring addition disabled - probably not necessary
-    if random.random() < p_RingAdd:
-        if debug: print "3",
-        stats['nNewRing'] += 1
-        try:
-            mutate.AddBond(candidate)
-            try:
-                candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-            except:
-                raise MutateFail
-            return candidate
-        except MutateFail:
-            stats['nNewRingFail'] += 1
-
-    # 4. Try to remove a bond to break a cycle
-    if random.random() < p_RingRemove:
-        if debug: print "4",
-        bondringids = candidate.GetRingInfo().BondRings()
-        # need to flatten bondringids:
-        if bondringids:
-            # fancy manner to flatten a list of tuples with possible duplicates
-            bondringids = set.intersection(*map(set, bondringids))
-            bonds = GetIBonds(bondringids, candidate, notprop='group')
-        else:
-            bonds = []
-        stats['nBreak'] += 1
-        if len(bonds) != 0:
-            mutate.RemoveBond(candidate, random.choice(bonds))
-            try:
-                candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-            except Exception as e:
-                print "error with RemoveBond with mol:", Chem.MolToSmiles(True)
-                print e
-                raise MutateFail
-            return candidate
-        else:
-            stats['nBreakFail'] += 1
-
-    # 5. add an atom
-    atoms = GetAtoms(candidate, notprop='protected')
-    bonds = GetBonds(candidate, notprop='group')
-    if (random.random() < p_AddFreq and len(atoms) + len(bonds) > 0):
-        if debug: print "5",
-        stats['nAdd'] += 1
-        try:
-            mutate.AddAtom(candidate, random.choice(atoms + bonds))
-            try:
-                candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-            except:
-                raise MutateFail
-            return candidate
-        except MutateFail:
-            stats['nAddFail'] += 1
-
-    # 6. remove an atom
-    if len(atoms) > 1 and random.random() < p_DelFreq:
-        if debug: print "6",
-        inismi = Chem.MolToSmiles(candidate)
-        stats['nRemove'] += 1
-        Chem.Kekulize(candidate, True)
-        atoms = filter(CanRemoveAtom, candidate.GetAtoms())
-        try:
-            try:
-                mutate.RemoveAtom(candidate, random.choice(atoms))
-                candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-            except Exception as e:
-                print "initial mol:", inismi
-                print "e:", e, "mol:", Chem.MolToSmiles(candidate)
-                raise MutateFail
-            return candidate
-        except MutateFail:
-            stats['nRemoveFail'] += 1
-
-    # 7. Add aromatic ring to a bond
-    if random.random() < p_AddAroRing:
-        if debug: print "7",
-        freesinglebonds = GetFreeBonds(candidate, order=1, sides=True)
-        #print "freesinglebonds:", freesinglebonds
-        freedoublebonds = GetFreeBonds(candidate, order=2, notprop='group')
-        triplebonds = filter(lambda bond: bond.GetBondType() == bondorder[3],
-                             candidate.GetBonds())
-        correctbonds = freedoublebonds + triplebonds + freesinglebonds
-        if len(correctbonds) > 1:
-            #print "n freedoublebonds:", len(correctbonds)
-            if debug: print "7",
-            stats['nAddArRing'] += 1
-            Chem.Kekulize(candidate, True)
-            try:
-                candidate = mutate.AddArRing(candidate,
-                                             random.choice(correctbonds))
-                try:
-                    candidate = Finalize(candidate, tautomerize=False, aromatic=False)
-                except Exception as e:
-                    print "exception in AddArRing with", Chem.MolToSmiles(
-                        candidate)
-                    print e
-                    raise MutateFail
-                return candidate
-            except MutateFail:
-                stats['nAddArRingFail'] += 1
-
-    # 8. Add aromatic ring to two rings
-    if random.random() < p_AddFusionRing:
-        if debug: print "8",
-        try:
-            p = Chem.MolFromSmarts('[h]@&=*(@*)@[h]')
-            matches = candidate.GetSubstructMatches(p)
-        except RuntimeError:
-            stats['nAddArRingFail'] += 1
-        else:
-            if matches:
-                stats['nAddArRing'] += 1
-                match = random.choice(matches)
-                if candidate.GetAtomWithIdx(match[-1]).GetNumRadicalElectrons():
-                    raise MutateFail
-                try:
-                    candidate = mutate.AddFusionRing(candidate, match)
-                    return candidate
-                except MutateFail:
-                    stats['nAddArRingFail'] += 1
-
-    if not change:
-        stats['nNoMutation'] += 1
-        raise MutateFail()
-    #if type(candidate)==Chem.RWMol: candidate=candidate.GetMol()
     return candidate
