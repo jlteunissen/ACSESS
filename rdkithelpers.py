@@ -193,6 +193,49 @@ def GetFreeBonds(mol, order=None, notprop=None, sides=False):
         bonds = filter( hastwodoublesides, bonds)
     return bonds
 
+#########################################
+# Returns free valence for an atom
+# Obviously, there's a problem if it's negative
+## After implicit hydrogens are assigned with the valence model,
+## this can be replaced by the implicit hydrogen count
+# MaxValence={6:4, 7:3, 8:2, 9:1, 15:3, 17:1, 16:2, 35:1, 50:3, 51:2}
+MaxValence = {
+    1: 1,
+    6: 4,
+    7: 3,
+    8: 2,
+    9: 1,
+    15: 3,
+    17: 1,
+    16: 2,
+    35: 1,
+    50: 3,
+    51: 2
+}
+
+
+def EmptyValence(atom):
+
+    # Sulfur can have up to 2 double bonds to oxygen
+    # (if it's not aromatic)
+    if (atom.GetAtomicNum() == 16 and atom.HasProp('grouprep')) and (
+            atom.GetProp('grouprep') == 'sulfone'
+            or atom.GetProp('grouprep') == 'sf5'):
+        maxv = 6
+
+    elif (atom.GetAtomicNum and atom.HasProp('grouprep')
+          and atom.GetProp('grouprep') == 'nitro'):
+        maxv = 4
+
+    else:
+        try:
+            maxv = MaxValence[atom.GetAtomicNum()]
+        except KeyError:
+            print "Error in EmptyValence"
+            print atom.GetAtomicNum()
+            raise
+
+    return maxv - atom.GetExplicitValence() - atom.GetNumRadicalElectrons()
 
 ########## Set List properties
 
@@ -235,6 +278,8 @@ def Sanitize(mol, aromatic=False):
         #Chem.SANITIZE_SETAROMATICITY^Chem.SANITIZE_CLEANUP^\
         #Chem.SANITIZE_CLEANUPCHIRALITY)
     return
+
+
 
 
 ################ Resonance Structures for radical and cations:
