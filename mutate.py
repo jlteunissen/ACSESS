@@ -77,52 +77,6 @@ def Init():
 
     return
 
-#########################################
-# Returns free valence for an atom
-# Obviously, there's a problem if it's negative
-## After implicit hydrogens are assigned with the valence model,
-## this can be replaced by the implicit hydrogen count
-# MaxValence={6:4, 7:3, 8:2, 9:1, 15:3, 17:1, 16:2, 35:1, 50:3, 51:2}
-#Jos added hydrogen in this list. I don't know if that is a good idea but for
-# openshell a lot of H's will end up in the SMILES strings
-MaxValence = {
-    1: 1,
-    6: 4,
-    7: 3,
-    8: 2,
-    9: 1,
-    15: 3,
-    17: 1,
-    16: 2,
-    35: 1,
-    50: 3,
-    51: 2
-}
-
-
-def EmptyValence(atom):
-
-    # Sulfur can have up to 2 double bonds to oxygen
-    # (if it's not aromatic)
-    if (atom.GetAtomicNum() == 16 and atom.HasProp('grouprep')) and (
-            atom.GetProp('grouprep') == 'sulfone'
-            or atom.GetProp('grouprep') == 'sf5'):
-        maxv = 6
-
-    elif (atom.GetAtomicNum and atom.HasProp('grouprep')
-          and atom.GetProp('grouprep') == 'nitro'):
-        maxv = 4
-
-    else:
-        try:
-            maxv = MaxValence[atom.GetAtomicNum()]
-        except KeyError:
-            print "Error in EmptyValence"
-            print atom.GetAtomicNum()
-            raise
-
-    return maxv - atom.GetExplicitValence() - atom.GetNumRadicalElectrons()
-
 
 ###############################################################################
 #                            Mutation Methods                                 #
@@ -204,7 +158,6 @@ class Mutator(object):
 
     def __call__(self, mol):
         Chem.Kekulize(mol, True)
-        
         try:
             mol = self.mutator(mol)
         except MutateFail:
