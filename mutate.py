@@ -57,14 +57,20 @@ def Init():
 
     # this is set here. If not given in input 
     # it is deleted in next for-loop!
-    CustomMutator.setnname('nCustom')
-    mutators['CustomMutator'] = CustomMutator
+    try:
+        CustomMutator.setnname('nCustom')
+        mutators['CustomMutator'] = CustomMutator
+    except AttributeError:
+        pass
 
     for mutationtype in mutationtypes:
         p = globals()["p_{}".format(mutationtype)]
         if p==0.0:
-            print mutationtype, "deleted"
-            del mutators[mutationtype]
+            try:
+                del mutators[mutationtype]
+                print mutationtype, "deleted"
+            except KeyError:
+                pass
         else:
             mutators[mutationtype].p = p
             print "mutation {:13s} set with probability {:3.2f}".format(mutationtype, p)
