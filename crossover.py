@@ -35,6 +35,11 @@ def Crossover(m1, m2):
     for m in (m1, m2):
         Chem.Kekulize(m, True)
 
+    # this is a boolean switch. we can change this later:
+    # 1. we can first try crossover and if it did not succeed
+    # try a normal crossover
+    # 2. we can assign a propability to RingCrossover as with the mutation
+    # interface
     if ringCrossover:
         return RingCrossover(m1, m2)
     else:
@@ -74,35 +79,7 @@ def NormalCrossover(m1, m2):
     # but what happens here?
     mol1.SetProp('parent1', m1.GetProp('isosmi'))
     mol2.SetProp('parent2', m2.GetProp('isosmi'))
-    if debug: print "CX2",
-    '''
-    if mol1.HasProp('groups'):
-        m1groups=[ groupid for groupid in mol1.GetProp('groups')
-                   if len(MolAtIsInGroup(mol1, groupid))>0 ]
-        mol1.ClearProp('groups')
-    else:
-        m1groups=[]
-    igrp=1
-    if mol2.HasProp('groups'):
-        for groupnum in mol2.GetProp('groups'):
-            m2groups=mol2.GetProp('groups')
-            if len(MolAtIsInGroup(mol2, groupnum))==0: continue
-            if groupnum in m1groups: #need to reassign group id
-                while igrp in m1groups+m2groups: igrp+=1
-                m1groups.append(igrp)
-                for atom in MolAtIsInGroup(mol2, groupnum):
-                    atom.SetProp('group',igrp)
-                for bond in MolBondIsInGroup(mol2, groupnum):
-                    bond.SetProp('group',igrp)
-                m2groups.append(igrp)
-                m2groups.remove(groupnum)
-            else:
-                m1groups.append(groupnum)
-        if len(m2groups)>0: mol2.SetProp('groups',m2groups)
-    if len(m1groups)>0: mol1.SetProp('groups',m1groups)
-    '''
 
-    ###################################
     #Append molecule 2 to molecule 1.
     newmol = Chem.CombineMols(mol1, mol2)
     newids = Chem.GetMolFrags(newmol)
@@ -119,20 +96,13 @@ def NormalCrossover(m1, m2):
     if len(possibleA1) == 0 or len(possibleA2) == 0:
         #print "no possible atoms!"
         raise MutateFail()
-    if debug: print "CX3",
     newmolRW = Chem.RWMol(newmol)
     atom1 = random.choice(possibleA1)
     atom2 = random.choice(possibleA2)
     newmolRW.AddBond(atom1.GetIdx(), atom2.GetIdx(), Chem.BondType.SINGLE)
-    if debug: print "CX4",
 
     #print "new mol!", Chem.MolToSmiles(newmolRW)
     mol = newmolRW.GetMol()
-    try:
-        mol = Finalize(mol, aromatic=False)
-    except:
-        raise MutateFail()
-    if debug: print "CX5",
     return mol
 
 
@@ -155,7 +125,6 @@ def GetFragment(mol):
             if bond.GetIdx() not in tried + ringbondids
         ]
         if len(bonds) == 0: break
-        if debug: print "CX0",
         # choose a bond
         delbond = random.choice(bonds)
         tried.append(delbond.GetIdx())
@@ -244,7 +213,7 @@ def RingCrossover(m1, m2):
     # 2. try to cut a ring from mol2 with similar bondorders
     frags2 = cutring2(Chem.RWMol(m2), ftypes)
 
-    print "frags1/frags2:", frags1, frags2
+    if debug: print "frags1/frags2:", frags1, frags2
     
     # 3. combined molecule should behave two criteria
     Choices = []
@@ -252,12 +221,12 @@ def RingCrossover(m1, m2):
     if maxWeight > 0:
         w1 = [Descriptors.MolWt(f) for f in frags1]
         w2 = [Descriptors.MolWt(f) for f in frags2]
-        for i, j in ((i, j) for i in xrange(2) for j in xrange(2)):
+        for i, j in ((i, j) for i in xrange(len(w1)) for j in xrange(len(w2))):
             if w1[i] + w2[j] < maxWeight + 50.0: Choices.append((i, j))
     # 3.2 Number of Atoms
     a1 = [f.GetNumAtoms() for f in frags1]
     a2 = [f.GetNumAtoms() for f in frags2]
-    for i, j in ((i, j) for i in xrange(2) for j in xrange(2)):
+    for i, j in ((i, j) for i in xrange(len(a1)) for j in xrange(len(a2))):
         if 3 < a1[i] + a2[j] < MxAtm + 4: Choices.append((i, j))
 
     if len(Choices) == 0:
@@ -288,9 +257,9 @@ def cutring1(originalmol):
         try:
             ringtocut = random.choice(rings)
         except ValueError:
-            print rings
+            if debug: print rings
             raise
-    print "rings 1:", rings
+    #print "rings 1:", rings
     # get ways to cut the rings
     ringcuts = totalringcuts[len(ringtocut)]
     nringcuts= len(ringcuts)
@@ -299,7 +268,7 @@ def cutring1(originalmol):
     for imanner in np.random.permutation(nringcuts):
         mol = deepcopy(originalmol)
         manner = ringcuts[imanner]
-        print manner
+        if debug: print manner
 
         # and cut mol in these bonds:
         ftypes = []
@@ -314,12 +283,12 @@ def cutring1(originalmol):
          
         # try to get the two parts
         frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=False)
-        print "molfrags:", [Chem.MolToSmiles(x, True) for x in frags]
+        if debug: print "molfrags:", [Chem.MolToSmiles(x, True) for x in frags]
         
         if len(frags)==2:
             break
         else:
-            print "not two fragments"
+            if debug: print "not two fragments"
             for frag in frags:
                 for atom in frag.GetAtoms():
                     atom.ClearProp('type1')
@@ -353,25 +322,25 @@ def cutring2(originalmol, ftypes):
         nringcuts=len(ringcuts)
         for imanner in np.random.permutation(nringcuts):
             manner = ringcuts[imanner]
-            print manner
+            # print manner
             # check if bondtypes match
             # get bondindices
             newftypes = []
             for bondtocut in manner:
                 i, j = ring[bondtocut[0]], ring[bondtocut[1]]
-                print "manner:", manner, "bondtocut:", bondtocut, "ring:", ring, "i,j", i,j
+                if debug: print "manner:", manner, "bondtocut:", bondtocut, "ring:", ring, "i,j", i,j
                 try:
                     btype = mol.GetBondBetweenAtoms(i, j).GetBondType()
                 except AttributeError:
                     raise
 
                 newftypes.append( btype )
-            print "newftype:", newftypes, "ftype:", ftypes
+            if debug: print "newftype:", newftypes, "ftype:", ftypes
             if not set(newftypes)==set(ftypes):
-                print "not similar"
+                if debug: print "not similar"
                 continue
             else:
-                print "similar!"
+                if debug: print "similar!"
 
             # now if similar cut it and check mol falls in two fragments:
             for bondtocut in manner:
@@ -384,29 +353,29 @@ def cutring2(originalmol, ftypes):
 
             # try to get the two parts
             frags = Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=False)
-            print "molfrags 2:", [Chem.MolToSmiles(x, True) for x in frags]
+            if debug: print "molfrags 2:", [Chem.MolToSmiles(x, True) for x in frags]
             
             if not len(frags)==2:
-                print "not two fragments"
+                if debug: print "not two fragments"
                 # since we cut bonds we go back to original molecule
                 mol = deepcopy(originalmol)
                 for atom in mol.GetAtoms():
                     atom.ClearProp('type2')
                 continue
             else:
-                print "two fragments"
+                if debug: print "two fragments"
                 # now choose one of the two new fragments
                 return frags
     
     if frags is None or len(frags)==1:
         raise MutateFail()
-    print "frags 2:", frags
+    if debug: print "frags 2:", frags
     return
 
 
 def combinemols(frag1, frag2, ftypes):
     mol = Chem.RWMol(Chem.CombineMols(frag1, frag2))
-    print Chem.MolToSmiles(mol)
+    #print Chem.MolToSmiles(mol)
 
     # decide which atoms have to be bonded to what
     props = [ 'type1', 'type2' ]
@@ -430,27 +399,29 @@ def combinemols(frag1, frag2, ftypes):
             a1 = mol.GetAtomWithIdx(bond['indices'][0])
             a2 = mol.GetAtomWithIdx(bond['indices'][1])
         except IndexError:
-            print bonds
-            for atom in mol.GetAtoms():
-                print atom.GetPropsAsDict()
-            raise
-        print a1, a2
+            if debug:
+                print bonds
+                for atom in mol.GetAtoms():
+                    print atom.GetPropsAsDict()
+            raise MutateFail
+        #print a1, a2
         if bond['type']=='SINGLE':
             bo = Chem.BondType.SINGLE
         else:
-            print bond['type']
+            if debug: print bond['type']
             bo = Chem.BondType.DOUBLE
-        print bo
+        #print bo
         try:
             mol.AddBond(a1.GetIdx(), a2.GetIdx(), bo)
         except RuntimeError:
-            print a1.GetIdx(), a2.GetIdx(), bo, bonds
-            for atom in mol.GetAtoms():
-                print atom.GetPropsAsDict()
-            raise
+            if debug:
+                print a1.GetIdx(), a2.GetIdx(), bo, bonds
+                for atom in mol.GetAtoms():
+                    print atom.GetPropsAsDict()
+            raise MutateFail()
 
     if len(Chem.GetMolFrags(mol))==1:
-        print "succesfull ringcrossover:", Chem.MolToSmiles(mol)
+        if debug: print "succesfull ringcrossover:", Chem.MolToSmiles(mol)
     else:
         raise MutateFail('not a single molecule')
 

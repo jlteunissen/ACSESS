@@ -6,7 +6,9 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkithelpers import *
 from output import stats
+import molfails
 from molfails import MutateFail
+import ACSESS
 #import mprms
 
 MAXTRY = 100
@@ -15,7 +17,7 @@ maxWeight = 0
 MxAtm = 0
 
 ###### mutation probabilities:
-mutationtypes = ['FlipAtom', 'FlipBond', 'AddAtom', 'AddBond', 'DelAtom', 'DelBond', 'AddAroRing', 'AddFusionRing']
+mutationtypes = ['FlipAtom', 'FlipBond', 'AddAtom', 'AddBond', 'DelAtom', 'DelBond', 'AddAroRing', 'AddFusionRing', 'CustomMutator']
 mutators = dict()
 
 p_FlipAtom = 0.8
@@ -26,6 +28,7 @@ p_DelAtom = 0.8  #Actual probability: .224
 p_DelBond = 0.2  #actual probability=.8*.3=.24
 p_AddAroRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
 p_AddFusionRing = 0.5  #actual probability is rather low sing free double bonds aren't prevalent
+p_CustomMutator = 0.0
 
 MutateStereo = False
 StereoFlip = 0.2
@@ -51,6 +54,11 @@ def Init():
     if halogens:
         print "elements:", elements
         print "halogens:", halogens
+
+    # this is set here. If not given in input 
+    # it is deleted in next for-loop!
+    CustomMutator.setnname('nCustom')
+    mutators['CustomMutator'] = CustomMutator
 
     for mutationtype in mutationtypes:
         p = globals()["p_{}".format(mutationtype)]
@@ -149,12 +157,21 @@ def SingleMutate(candidateraw):
 
     for mutationtype, mutator in mutators.items():
         if random.random() < mutator.p:
+            #print "in mutate:",  mutationtype, Chem.MolToSmiles(candidate),
             change = True
             stats[mutator.nname] += 1
             try:
                 candidate = mutator(candidate)
-            except MutateFail:
+            # I don't understand why these errors are not similar?! but this works
+            except (MutateFail, ACSESS.molfails.MutateFail) as e:
                 stats[mutator.nnameFail] += 1
+            except Exception as e:
+                print e, repr(e), type(e)
+                raise
+
+            # should we allow multiple mutation at the same time:
+            # if not:
+            # break
 
     if not change:
         stats['nNoMutation'] += 1
@@ -168,11 +185,16 @@ class Mutator(object):
             raise TypeError('mutator is not callabe')
         self.mutator = mutator
         self.name = mutator.__name__
+        self.setnname(nname)
         self.p = p
+        return
+
+    def setnname(self, nname=None):
         if nname is None:
             self.nname = "n{}".format(self.name)
+        else:
+            self.nname = nname
         self.nnameFail = "{}Fail".format(self.nname)
-        return
 
     def __call__(self, mol):
         Chem.Kekulize(mol, True)
@@ -180,7 +202,7 @@ class Mutator(object):
         try:
             mol = self.mutator(mol)
         except MutateFail:
-            pass
+            raise
         except Exception as e:
             print self.mutator
             print self.name
@@ -190,6 +212,9 @@ class Mutator(object):
             raise MutateFail()
 
         mol = Finalize(mol, tautomerize=False, aromatic=False)
+
+        if type(mol)==Chem.Mol:
+            mol = Chem.RWMol(mol)
         return mol
 
     def __str__(self):
@@ -319,9 +344,9 @@ def DelBond(mol):
         bond = random.choice(bonds)
     except IndexError:
         print bondringids
-        raise
     mol.RemoveBond(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx())
 
+    #print "succesful delbond:", Chem.MolToSmiles(mol)
     return mol
 mutators['DelBond'] = Mutator(DelBond)
 
@@ -556,9 +581,10 @@ def AddFusionRing(mol):
             AwithLabel(prop, idx=False).ClearProp(prop)
 
     return mol
-mutators['AddFusionRing'] = Mutator(AddFusionRing)
+mutators['AddFusionRing'] = Mutator(AddFusionRing, nname='nAddAroRing')
 
-
-
+# this is the interface for a possible user-input mutator
+def CustomMutator(mol):
+    return mol
 
 

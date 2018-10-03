@@ -30,6 +30,7 @@ EdgeLen = 10
 EdgeRatio = 0.1
 resonance = False
 
+enumerateTautomer = False
 _tautomerEnumerator = None
 
 
@@ -37,7 +38,7 @@ debug = False
 
 def Init():
     global _tautomerEnumerator
-    if hasattr(mprms, 'canonicalTautomer') and mprms.canonicalTautomer:
+    if enumerateTautomer and mprms.canonicalTautomer:
         from molvs.tautomer import TautomerEnumerator
         _tautomerEnumerator = TautomerEnumerator()
         print "_tautomerEnumerator:", _tautomerEnumerator
@@ -54,7 +55,6 @@ def SetIterationWorkflow(gen):
 @logtime()
 def DriveMutations(lib):
     global stats
-    nDups, nExcp, nCand = (0, 0, 0)
 
     # 1. CROSSOVERS:
     print "crossovers...",
@@ -68,7 +68,6 @@ def DriveMutations(lib):
             else:
                 mol1 = random.choice(lib + newmols)
                 mol2 = random.choice(lib + newmols)
-            #candidate = mutate.Crossover(mol1, mol2)
             candidate = crossover.Crossover(mol1, mol2)
             if type(candidate) == Chem.RWMol: candidate = candidate.GetMol()
             candidate = Finalize(candidate, aromatic=False)
@@ -113,7 +112,10 @@ def DriveMutations(lib):
             stats['nCand'] += 1
         except MutateFail:
             stats['nExcp'] += 1
-    newmols = filter(Sane, newmols)
+
+    # this should be redundant
+    # newmols = filter(Sane, newmols)
+
     nbefore = len(newmols)
     newmols = RemoveDuplicates(newmols)
     stats['nDups'] = nbefore - len(newmols)

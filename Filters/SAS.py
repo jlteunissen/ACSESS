@@ -11,8 +11,8 @@ import copy
 SARescale = False
 _fscores = None
 
-
 def ReadFragScores(name='fpscores'):
+    print "reading SAS fragment scores... ",
     import gzip
     global _fscores
     #generate the full path filename
