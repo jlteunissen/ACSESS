@@ -14,10 +14,16 @@ debug = False
 ##########################
 
 statcolumns = ('gen', 'diversity', 'nPool', 'nLib', 'nCand', 'nFilt', 'nDups', 'nExcp',
-               'nUnFit', 'nAdd', 'nAddFail', 'nAddArRing', 'nAddArRingFail',
-               'nAtomType', 'nAtomTypeFail', 'nBreak', 'nBreakFail', 'nFlip',
-               'nFlipFail', 'nNewRing', 'nNewRingFail', 'nRemove',
-               'nRemoveFail', 'nNoMutation')
+               'nUnFit', 
+               'nAddAtom', 'nAddFail',
+               'nAddBond', 'nAddBondFail',
+               'nFlipAtom', 'nFlipAtomFail',
+               'nDelBond', 'nDelBondFail',
+               'nFlipBond', 'nFlipBondFail',
+               'nDelAtom', 'nDelAtomFail',
+               'nAddArRing', 'nAddArRingFail',
+               'nCustom', 'nCustomFail',
+               'nNoMutation')
 fitnesscolumns = ('gen', 'NumIn', 'NumOut', 'nSwap', 'AvgFVal', 'MinFVal',
                   'MaxFVal', 'CutOff')
 

@@ -13,7 +13,6 @@ sys.path.append('.')
 import mprms
 import init
 import drivers as dr
-import celldiversity as cd
 import output
 from output import stats
 import objective
@@ -27,7 +26,7 @@ _gridAssign = None
 writeInterval=1
 
 def initiate():
-    global startiter, lib, pool, _gridAssign
+    global startiter, lib, pool, _gridAssign, cd, writeInterval
     ##################################
     # 1. read input and initialize
     ##################################
@@ -38,8 +37,13 @@ def initiate():
     startiter, lib, pool = init.StartLibAndPool(mprms.restart)
 
     if mprms.cellDiversity:
+        import celldiversity as cd
         siml,mylib,_gridAssign = cd.GridDiversity( [], lib+pool )
         #wrotepool=set( m.GetData('isosmi') for m in mylib+pool )
+
+    # this file is load before initialization so we have to change it here:
+    if mprms.writeInterval:
+        writeInterval = mprms.writeInterval
     return
 
 
@@ -113,6 +117,7 @@ def evolve():
             for i, mol in enumerate(lib):
                 f.write(Chem.MolToSmiles(mol) + ' {:d}\n'.format(i))
         if gen % writeInterval == 0 or gen == mprms.nGen - 1:
+            print "writeInterval:", writeInterval
             DumpMols(lib, gen)
         DumpMols(pool)
         stats['diversity'] = siml

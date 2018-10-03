@@ -21,7 +21,7 @@ def Initialize():
     # define which type of module attributes are allowed to be changed
     primitiveTypes = (str, float, bool, int, list, tuple, type(None))
     isinputfunction= lambda var: hasattr(var, '__name__') and var.__name__ in [
-            'fitnessfunction', 'extender']
+            'fitnessfunction', 'extender', 'CustomMutator']
     normalvar =  lambda var: type(var) in primitiveTypes or isinputfunction(var)
     notbuiltin = lambda var: not var.startswith('_')
 
@@ -58,6 +58,7 @@ def Initialize():
     _modules = [
         'acsess',
         'mutate',
+        'crossover',
         'filters',
         'Filters.DefaultFilters',
         'Filters.ExtraFilters',

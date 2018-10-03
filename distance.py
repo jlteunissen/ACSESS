@@ -448,18 +448,59 @@ def AveNNDistance(mols, getsqrt=False, std_dev=None, norm=True):
         chunksize = N
         nchunk = 1
 
+    #print "coords:", coords
+
     nndist = 0.0
-    for i in xrange(nchunk):
-        if i * chunksize >= N:
-            break
-        dists = cdist(coords, coords[i * chunksize:(i + 1) * chunksize])
-        for j in xrange(min(chunksize, dists.shape[1])):
-            dists[i * chunksize + j, j] = np.inf
+    #for i in xrange(nchunk):
+    #    if i * chunksize >= N:
+    #        break
+    #    dists = cdist(coords, coords[i * chunksize:(i + 1) * chunksize])
+    #    for j in xrange(min(chunksize, dists.shape[1])):
+    #        dists[i * chunksize + j, j] = np.inf
+    #
+    #    # https://stackoverflow.com/questions/11188364/remove-zero-lines-2-d-numpy-array
+    #    dists = dists[~np.all(dists == 0, axis=1)]
+    #
+    #    r = np.min(dists, axis=0)
+    #
+    #    # remove inf values from r:
+    #    r[r == np.inf] = 0.0
+    #
+    #    if getsqrt:
+    #        nndist += sum(r)
+    #    else:
+    #        nndist += np.dot(r, r)
+    #        print r
+    #
+    #    print "nndist", nndist
+
+    # new implementation. naive
+    for i in xrange(N):
+        dists = cdist(coords, [coords[i]])
+        # since dist with itself is zero:
+        dists[i] = np.inf
+
+        allzero = dists[np.all(dists==0, axis=1)]
+        nzero = len(allzero)
+        if nzero>0:
+            #print "all zero:", dists[np.all(dists==0, axis=1)]
+            #print len(allzero), "identical vectors present!"
+            dists = dists[~np.all(dists==0, axis=1)]
+            # continue
+
+        #print "dists:", dists
+
         r = np.min(dists, axis=0)
-        if getsqrt:
-            nndist += sum(r)
-        else:
-            nndist += np.dot(r, r)
+        
+        #print "r:", r,
+        # 0.9 to the power of nzero is a punitive term
+        nndist += ( 0.9**nzero )* np.dot(r,r)
+
+
+
+    #if nndist==0.0:
+    #    print "nndist:", nndist, "chunksize:", chunksize, "dists:", dists, "len(mols)", len(mols)
+    #    raise ValueError('diversity became zero!')
 
     return nndist / len(mols)
 
@@ -503,6 +544,10 @@ def MPIAveNN(args):
         dists = cdist(coords, coords[i * chunksize:(i + 1) * chunksize])
         for j in xrange(min(chunksize, dists.shape[i])):
             dists[i * chunksize + j, j] = np.inf
+
+        if dists[np.all(dists == 0, axis=1)]:
+            print "there are zero vectors!!!"
+
         r = np.min(dists, axis=0)
         if getsqrt:
             nndist += sum(r)
