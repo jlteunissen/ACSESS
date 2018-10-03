@@ -127,12 +127,20 @@ def evolve():
 if __name__ == "__main__":
     import sys
     import signal
+    import inspect
 
     def signal_term_handler(signal, frame):
-        print 'got kill signal!'
+        if signal or frame:
+            print 'got kill signal!'
         output.PrintTimings()
-        output.PrintStats()
+        output.PrintStat()
         output.PrintTotalTimings()
+        try:
+            f_locals = inspect.trace()[-1][0].f_locals
+            DumpMols(f_locals['lib'], f_locals['gen'])
+            DumpMols(f_locals['pool'])
+        except Exception as e:
+            print "didn't manage to dump pool and mylib after kill signal", e
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, signal_term_handler)
@@ -163,10 +171,7 @@ if __name__ == "__main__":
                 evolve()
             except KeyboardInterrupt:
                 print "catched KeyboardInterrupt!"
-                output.PrintTimings()
-                output.PrintStat()
-                output.PrintTotalTimings()
-                sys.exit(0)
+                signal_term_handler(None, None)
 
     run = RunACSESS()
     run.evolve()
