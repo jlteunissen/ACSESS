@@ -5,11 +5,13 @@ import random
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 from rdkithelpers import *
+from helpers import *
 from output import stats
 import molfails
 from molfails import MutateFail
 import ACSESS
-#import mprms
+import mprms
+
 
 MAXTRY = 100
 elements = []
@@ -123,11 +125,16 @@ def SingleMutate(candidateraw):
             try:
                 candidate = mutator(candidate)
             # I don't understand why these errors are not similar?! but this works
-            except (MutateFail, ACSESS.molfails.MutateFail) as e:
+            except MutateFail as e:
                 stats[mutator.nnameFail] += 1
             except Exception as e:
-                print e, repr(e), type(e)
-                raise
+                if 'MutateFail' in repr(e):
+                    #print "exotic MutateFail"
+                    stats[mutator.nnameFail] += 1
+                else:
+                    print "Exception is not MutateFail!"
+                    print e, repr(e), type(e)
+                    raise
 
             # should we allow multiple mutation at the same time:
             # if not:
@@ -162,10 +169,15 @@ class Mutator(object):
             mol = self.mutator(mol)
         except MutateFail:
             raise
+        except RuntimeError as e:
+            print "RuntimeError in Mutator:", self.mutator, self.name
+            print "repr(e):", repr(e)
+            raise MutateFail()
         except Exception as e:
-            print self.mutator
-            print self.name
-            raise
+            if 'MutateFail' in repr(e):
+                raise MutateFail()
+            else:
+                raise
 
         if mol is None:
             raise MutateFail()

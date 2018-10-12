@@ -403,6 +403,13 @@ def GetMurckoScaffold(mol):
     #return scaffold rdkit.mol object
     return scaffold
 
+class FakeModule(object):
+    def __init__(self):
+        self.molfails = __import__('molfails')
+        return
+
+ACSESS = FakeModule()
+
 if __name__=="__main__":
     import sys
     smiles = sys.argv[1]
