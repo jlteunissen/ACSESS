@@ -167,7 +167,7 @@ class Mutator(object):
         Chem.Kekulize(mol, True)
         try:
             mol = self.mutator(mol)
-        except MutateFail:
+        except MutateFail as e:
             raise
         except RuntimeError as e:
             print "RuntimeError in Mutator:", self.mutator, self.name
@@ -242,7 +242,7 @@ def FlipAtom(mol):
                     break
             if CanAddHalogen:
                 atom.SetAtomicNum( random.choice(halogens))
-                return
+                return mol
 
     # # # # # # # # #
     # Regular atom switching
@@ -253,7 +253,7 @@ def FlipAtom(mol):
         cand = random.choice(elems)
         if MaxValence[cand] >= valence:
             atom.SetAtomicNum(cand)
-            return
+            return mol
 
     if not changed:
         raise MutateFail()  # if here, mutation failed ...
@@ -345,7 +345,16 @@ def AddAtom(mol):
     elif type(obj) == Chem.Atom and EmptyValence(obj) > 0:
         if obj.HasProp('protected'):
             raise MutateFatal(mol, 'Trying to add atom to protected atom.')
-        newatomid = mol.AddAtom(Chem.Atom(6))
+
+        # choose an atom to add
+        atnum = obj.GetAtomicNum()
+        elems = [el for el in elements if el != atnum]
+        if atnum==6: # only add halogens to carbons
+            elems.extend(halogens)
+        cand = random.choice(elems)
+
+        # and add it
+        newatomid = mol.AddAtom(Chem.Atom(cand))
         mol.AddBond(obj.GetIdx(), newatomid, bondorder[1])
     else:
         raise MutateFail()
