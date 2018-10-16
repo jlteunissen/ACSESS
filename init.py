@@ -194,11 +194,14 @@ def StartLibAndPool(restart):
     #case 1: read from mprms.poolfile
     if hasattr(mprms, 'poolFile'):
         pool = [mol for mol in lib]
-        supplier = Chem.SmilesMolSupplier(mprms.poolFile, sanitize=False)
-        newpool = [mol for mol in supplier]
-        pool += newpool
-        print 'Initializing pool from ' + mprms.poolFile + ' of ' +\
+        try:
+            supplier = Chem.SmilesMolSupplier(mprms.poolFile, sanitize=False)
+            newpool = [mol for mol in supplier]
+            pool += newpool
+            print 'Initializing pool from ' + mprms.poolFile + ' of ' +\
                    str(len(newpool)) + ' molecules'
+        except IOError as e:
+            print "no pool file provided!"
 
     #case 2: read from mprms.poollib
     elif hasattr(mprms, 'poolLib'):
