@@ -60,7 +60,9 @@ def Init():
 def ComputeObjectives(mols_tocalc, gen=0):
     if CINDES_interface:
         print 'calculating via CINDES program'
+        output.StartTimer('CINDES')
         qc.calculate(mols_tocalc, gen=gen)
+        output.EndTimer('CINDES')
     elif callable(fitnessfunction):
         for mol in mols_tocalc:
             value = fitnessfunction(mol)

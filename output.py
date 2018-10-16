@@ -14,7 +14,7 @@ debug = False
 ##########################
 
 statcolumns = ('gen', 'diversity', 'nPool', 'nLib', 'nCand', 'nFilt', 'nDups', 'nExcp',
-               'nUnFit', 
+               'nUnFit',
                'nAddAtom', 'nAddFail',
                'nAddBond', 'nAddBondFail',
                'nFlipAtom', 'nFlipAtomFail',

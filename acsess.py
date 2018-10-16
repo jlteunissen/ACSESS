@@ -42,7 +42,7 @@ def initiate():
         #wrotepool=set( m.GetData('isosmi') for m in mylib+pool )
 
     # this file is load before initialization so we have to change it here:
-    if mprms.writeInterval:
+    if hasattr(mprms, 'writeInterval'):
         writeInterval = mprms.writeInterval
     return
 
