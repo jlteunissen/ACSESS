@@ -333,6 +333,7 @@ def xyzfromrdmol(rdmol, string=False, **kwargs):
         35: 'Br',
         53: 'I'
     }
+    print "kwargs:", kwargs
     with open('omega.mol', 'a') as out:
         with custom_redirection(out):
             molcoords = Compute3DCoords(rdmol, **kwargs)
@@ -365,10 +366,10 @@ def Compute3DCoords(mol, ff='ETKDG', RDGenConfs=False, **kwargs):
                 #calculate mol 3D coordinate
                 AllChem.EmbedMolecule(molAddH, AllChem.ETKDG())
             elif ff == 'UFF':
-                AllChem.EmbedMolecule(molAddH)
+                AllChem.EmbedMolecule(molAddH, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
                 AllChem.UFFOptimizeMolecule(molAddH)
             elif ff == 'MMFF':
-                AllChem.EmbedMolecule(molAddH)
+                AllChem.EmbedMolecule(molAddH, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
                 AllChem.MMFFOptimizeMolecule(molAddH)
             else:
                 raise TypeError('force field not recognized')
