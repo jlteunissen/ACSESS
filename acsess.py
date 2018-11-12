@@ -175,7 +175,9 @@ if __name__ == "__main__":
             try:
                 evolve()
             except KeyboardInterrupt:
-                print "catched KeyboardInterrupt!"
+                print "\n\n\t\t##############################\n"+\
+                          "\t\t# Catched KeyboardInterrupt! #\n"+\
+                          "\t\t##############################"
                 signal_term_handler(None, None)
 
     run = RunACSESS()

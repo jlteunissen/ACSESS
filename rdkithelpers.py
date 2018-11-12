@@ -318,28 +318,30 @@ def FullyResonate(mol, idx):
     Chem.Kekulize(mol, True)
 
     # make a selection of resonant structures including our initial molecule:
-    mols = [mol]
+    #mols = [mol]
+    molsD= {idx:mol}
     while True:
         l1 = len(radpositions)
-        for mol in mols:
+        for mol in molsD.values():
             matches = mol.GetSubstructMatches(cationpattern1)
 
             # restrict matches if atoms were already conjugated:
             newmatches = []
             for match in matches:
                 if not match[-1] in radpositions:
+                    newstruct = Resonate(mol, [match])[0]
                     newmatches.append(match)
                     radpositions.add(match[-1])
-            if newmatches:
-                newstructs = Resonate(mol, newmatches)
-            else:
-                newstructs = []
-            mols.extend(newstructs)
+                    molsD[match[-1]]=newstruct
+                    #mols.append(newstruct)
         l2 = len(radpositions)
         # if no new conjugated atoms where found:
         if l1==l2:
             break
-    return mols
+    #print "molsD:"
+    #for i, imol in molsD.iteritems():
+    #    print i, Chem.MolToSmiles(imol)
+    return molsD
 
 def SelectResonanceStructure(mol):
     smi1 = Chem.MolToSmiles(mol)
@@ -362,7 +364,7 @@ def SelectResonanceStructure(mol):
         print "n resonance:", len(resSuppl), "for", Chem.MolToSmiles(mol)
         newmol = np.random.choice(resSuppl)
     else:
-        newmols = FullyResonate(mol, idx)
+        newmols = FullyResonate(mol, idx).values()
         #print "n resonance:", len(newmols), "for", Chem.MolToSmiles(mol)
         newmol = np.random.choice(newmols)
 
