@@ -56,7 +56,7 @@ def calculate(rdmols, QH2=False, gen=0):
     global table, run
     print "len(table):{}".format(len(table)),
     print "n rdmols:{}".format(len(rdmols))
-    if len(table) < 10: print table
+    #if len(table) < 10: print table
 
     # -1 imports
     from CINDES.INDES.calculator import do_calcs, set_target_properties
