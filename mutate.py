@@ -370,7 +370,9 @@ def DelAtom(mol):
 
     atom = random.choice(atoms)
 
-    Degree = atom.GetDegree() + atom.GetNumRadicalElectrons()
+    # or GetTotalDegree?
+    #Degree = atom.GetDegree() + atom.GetNumRadicalElectrons()
+    Degree = atom.GetDegree()
 
     #If there's only one atom, refuse to remove it
     if len(atom.GetNeighbors()) == 0:

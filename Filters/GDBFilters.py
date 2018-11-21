@@ -347,7 +347,9 @@ AllFilters['C=N'] = newfilt
 newfilt.SetExceptions([
     Chem.MolFromSmarts("[#7]C=N"),
     Chem.MolFromSmarts("[C&X3]=N[N,O,n,o]"),
-    Chem.MolFromSmarts("cn")
+    Chem.MolFromSmarts("cn"),
+# Jos added for radicals:
+    Chem.MolFromSmarts("[#6]-C=N-C=*")
 ])
 #if allow_imines:
 #    newfilt.SetExceptions([Chem.MolFromSmarts("[#7]C=N"),
@@ -529,6 +531,11 @@ AllFilters['HetHetHet'] = newfilt
 
 newfilt = NewPatternFilter('Hetero-sulfur without sulfone')
 newfilt.SetFilterPattern(Chem.MolFromSmarts('*[S&X2][!#6]'))
+# Jos added for thiadiazinyl radicals:
+newfilt.SetExceptions([
+    Chem.MolFromSmarts('*[S&X2][#7]=*'),
+    Chem.MolFromSmarts('*[S&X2][#7;v2]')
+])
 AllFilters['Hetero-sulfur without sulfone'] = newfilt
 
 newfilt = NewPatternFilter('Hetero-SR1')
