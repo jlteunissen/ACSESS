@@ -241,6 +241,8 @@ class NewFilter(object):
 
     def Fix(self, mol):
         if self.HasFix:
+            if debug:
+                print "in PatternFix:", self.name, self.fixroutine.__name__
             return self.fixroutine(mol)
         else:
             return False

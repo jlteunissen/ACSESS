@@ -307,10 +307,30 @@ def Resonate(mol, matches):
         newmols.append(newmol)
     return newmols
 
+def Resonate_p2(mol, matches):
+    newmols = []
+    for match in matches:
+        newmol = deepcopy(mol)
+        Chem.Kekulize(newmol, True)
+
+        # switch positive charge
+        a0 = newmol.GetAtomWithIdx(match[0])
+        a0.SetFormalCharge(0)
+        a1 = newmol.GetAtomWithIdx(match[1])
+        a1.SetFormalCharge(1)
+
+        # make bond a double bond
+        bond = newmol.GetBondBetweenAtoms(match[0], match[1])
+        assert bond.GetBondType()==Chem.BondType.SINGLE
+        bond.SetBondType(Chem.BondType.DOUBLE)
+
+        newmols.append(newmol)
+    return newmols
 
 def FullyResonate(mol, idx):
     # find a conjugated cation.
     cationpattern1 = Chem.MolFromSmarts('[+1]~*=*')
+    cationpattern2 = Chem.MolFromSmarts('[#7&+1]-[#16&X2]')
 
     radpositions = set()
     radpositions.add(idx)
@@ -323,17 +343,24 @@ def FullyResonate(mol, idx):
     while True:
         l1 = len(radpositions)
         for mol in molsD.values():
-            matches = mol.GetSubstructMatches(cationpattern1)
 
+            # resonate pattern 1
+            matches = mol.GetSubstructMatches(cationpattern1)
             # restrict matches if atoms were already conjugated:
-            newmatches = []
             for match in matches:
                 if not match[-1] in radpositions:
                     newstruct = Resonate(mol, [match])[0]
-                    newmatches.append(match)
                     radpositions.add(match[-1])
                     molsD[match[-1]]=newstruct
-                    #mols.append(newstruct)
+
+            # resonate pattern 2
+            matchesp2 = mol.GetSubstructMatches(cationpattern2)
+            for matchp2 in matchesp2:
+                if not matchp2[-1] in radpositions:
+                    newstruct = Resonate_p2(mol, [matchp2])[0]
+                    radpositions.add(matchp2[-1])
+                    molsD[matchp2[-1]]=newstruct
+
         l2 = len(radpositions)
         # if no new conjugated atoms where found:
         if l1==l2:

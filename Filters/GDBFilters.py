@@ -94,7 +94,7 @@ NandOtoC = 1.0
 NtoC = 0.6  #not what they say in the paper, but it appears to be true in practice
 OtoC = 0.666
 HalogentoC = 0.5
-StoC = 0.333
+StoC = 0.3334 # Jos added the 4 so now 1/3<StoC! 
 nitros = Chem.MolFromSmarts('[N+]([O-])=O')
 nitriles = Chem.MolFromSmarts('C#N')
 sulfones = Chem.MolFromSmarts('O=[S&H0]=O')
@@ -121,7 +121,7 @@ def AtomCountFilter(mol):
     if (nitrogen + oxygen) / carbon > NandOtoC:
         return '(N+O)/C ratio too high'
     if sulfur / carbon > StoC:
-        return 'S/C ratio too high'
+        return 'S/C ratio too high: {:f}>{:f}'.format(sulfur/carbon, StoC)
     if halogen / carbon > HalogentoC:
         return 'Halogen/C ratio too high'
     return False
