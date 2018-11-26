@@ -359,8 +359,8 @@ def Compute3DCoords(mol, ff='ETKDG', RDGenConfs=False, **kwargs):
         generator = ConformerGenerator(max_conformers=1, **kwargs)
         molAddH = generator(mol)
     else:
-        molAddH = Chem.AddHs(mol)
         try:
+            molAddH = Chem.AddHs(mol)
             if ff == 'ETKDG':
                 #calculate mol 3D coordinate
                 AllChem.EmbedMolecule(molAddH, AllChem.ETKDG())

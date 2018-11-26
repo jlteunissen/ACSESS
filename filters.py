@@ -111,22 +111,20 @@ def FixAndFilter(mol):
     # 2. filter
     changed, filt = FixFilters(mol)
 
-    # 3. Switch off aromaticity:
+    # 3. Switch off aromaticity and final Sanitize:
     try:
         Chem.Kekulize(mol, True)
+        if changed: mol = Finalize(mol, tautomerize=False)
     except Exception as e:
         if verbose:
             print "didn't manage to kekulize:",
             print Chem.MolToSmiles(mol),
         filt = 'unkekulizable'
-
-    # 4. Sanitize if Fixroutines changed the molecule
     if debug and filt:
         print "changed:{}, failed:{}, mol:{}".format(changed, filt,
                                                      Chem.MolToSmiles(mol))
-    if changed: mol = Finalize(mol, tautomerize=False)
 
-    # 5. Set molprops
+    # 4. Set molprops
     mol.SetBoolProp('filtered', True)
     if type(filt) is bool:
         filt = {True: 'unknown', False: ''}[filt]
