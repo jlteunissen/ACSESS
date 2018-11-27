@@ -146,6 +146,7 @@ if __name__ == "__main__":
             DumpMols(f_locals['pool'])
         except Exception as e:
             print "didn't manage to dump pool and mylib after kill signal", e
+            print "Error Termination"
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, signal_term_handler)
@@ -179,6 +180,8 @@ if __name__ == "__main__":
                           "\t\t# Catched KeyboardInterrupt! #\n"+\
                           "\t\t##############################"
                 signal_term_handler(None, None)
+            else:
+                print "Normal Termination"
 
     run = RunACSESS()
     run.evolve()
