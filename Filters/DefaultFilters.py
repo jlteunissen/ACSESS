@@ -68,7 +68,7 @@ def CutRings(mol):
         bondringids = set.intersection(*map(set, bondringids))
         bonds = GetIBonds(bondringids, mol, notprop='group')
         if len(bonds) == 0: raise MutateFail()
-        mutate.RemoveBond(mol, random.choice(bonds))
+        mol = mutate.DelBond(mol)
         if mol.HasProp('ringcount'): mol.ClearProp('ringcount')
         changed = True
         if itry >= MAXTRY: raise MutateFail()

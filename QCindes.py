@@ -11,6 +11,7 @@
 '''
 import os, sys
 import numpy as np
+import molfails
 
 from rdkit import Chem
 
@@ -67,10 +68,16 @@ def calculate(rdmols, QH2=False, gen=0):
     # CINDES.utils.molecule.SmiMolecule objects
     mols = [SmiMolecule(Chem.MolToSmiles(rdmol, True)) for rdmol in rdmols]
     for mol, rdmol in zip(mols, rdmols):
-        mol.xyz = xyzfromrdmol(rdmol, RDGenConfs=RDGenConfs, pool_multiplier=pool_multiplier)
         mol.rdmol=rdmol
+        try:
+            mol.xyz = xyzfromrdmol(rdmol, RDGenConfs=RDGenConfs, pool_multiplier=pool_multiplier)
+        except molfails.NoGeom as e:
+            print "no geom constructed for now ignored molecule:", Chem.MolToSmiles(rdmol)
+            print e
+            mol.discard()
+            continue
 
-    # check if already in database
+    # check if already in database or already ignored.
     mols_todo, mols_nodo = check_in_table(
         mols, table, run.props, check_ignored=True)
 
@@ -95,7 +102,7 @@ def calculate(rdmols, QH2=False, gen=0):
     #3. calculate final objectives
     set_target_properties(mols, run)
 
-    # 4. Do the administration
+    # 4. Do the administration & set 'Objective' Property for RWMol objects
     loggings(mols, table)
 
     return
@@ -109,7 +116,12 @@ def loggings(mols, table):
 
     # set the results as attributes from the rdmols
     for mol in mols:
-        mol.rdmol.SetDoubleProp('Objective', float(mol.Pvalue))
+        try:
+            mol.rdmol.SetDoubleProp('Objective', float(mol.Pvalue))
+        except AttributeError as e:
+            print "mol has no rdmol?:", mol
+            print "mol.ignored?", mol.IsDiscarded
+            print e
 
     print "logging table..."
     from CINDES.INDES.loggings import log_table

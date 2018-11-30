@@ -81,10 +81,10 @@ def UpdateObjective(mylib, gen=0):
     print 'Computing Objective...'
     ComputeObjectives(mols_tocalc, gen)
 
-    newvals = {
-        Chem.MolToSmiles(m, True): m.GetProp('Objective')
-        for m in mols_tocalc
-    }
+    #newvals = {
+    #    Chem.MolToSmiles(m, True): m.GetProp('Objective')
+    #    for m in mols_tocalc
+    #}
     return
 
 
@@ -114,8 +114,8 @@ def ApplyCutOff(totallib, gen):
     # apply correction to cutoff if cutoff is too harsh
     if minNMol:
         # don't let the total number of mols drop below a certain number:
-        print "cutoff not applied. Nmol should stay at {:d}.".format(minNMol)
         if Nbefore>minNMol and Nafter<minNMol:
+            print "cutoff not applied. Nmol should stay at {:d}.".format(minNMol)
             newpool = totallib[:minNMol]
     if maxRemove:
         if Nbefore-Nafter > maxRemove * Nbefore:
