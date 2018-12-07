@@ -355,12 +355,15 @@ def Compute3DCoords(mol, ff='ETKDG', RDGenConfs=False, **kwargs):
 
     #mol: rdkit RWMol or Mol
     if RDGenConfs:
-        from rdkithelpers import ConformerGenerator
-        generator = ConformerGenerator(max_conformers=1, **kwargs)
-        molAddH = generator(mol)
-    else:
-        molAddH = Chem.AddHs(mol)
         try:
+            from rdkithelpers import ConformerGenerator
+            generator = ConformerGenerator(max_conformers=1, **kwargs)
+            molAddH = generator(mol)
+        except RuntimeError as e:
+            raise NoGeom
+    else:
+        try:
+            molAddH = Chem.AddHs(mol)
             if ff == 'ETKDG':
                 #calculate mol 3D coordinate
                 AllChem.EmbedMolecule(molAddH, AllChem.ETKDG())
@@ -402,6 +405,13 @@ def GetMurckoScaffold(mol):
 
     #return scaffold rdkit.mol object
     return scaffold
+
+class FakeModule(object):
+    def __init__(self):
+        self.molfails = __import__('molfails')
+        return
+
+ACSESS = FakeModule()
 
 if __name__=="__main__":
     import sys

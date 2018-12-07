@@ -16,7 +16,7 @@ _sumhelper = None
 # global variables
 minimize = False  #Minimizing or maximizing the objective function?
 compGeom = False  #Does objective function require 3d structure?
-TargetScore = None
+TargetScore = 0.0
 FixedCutoff = False
 InitialCutoff = 0.0
 TakeFittest = 1
@@ -60,7 +60,9 @@ def Init():
 def ComputeObjectives(mols_tocalc, gen=0):
     if CINDES_interface:
         print 'calculating via CINDES program'
+        output.StartTimer('CINDES')
         qc.calculate(mols_tocalc, gen=gen)
+        output.EndTimer('CINDES')
     elif callable(fitnessfunction):
         for mol in mols_tocalc:
             value = fitnessfunction(mol)
@@ -79,10 +81,10 @@ def UpdateObjective(mylib, gen=0):
     print 'Computing Objective...'
     ComputeObjectives(mols_tocalc, gen)
 
-    newvals = {
-        Chem.MolToSmiles(m, True): m.GetProp('Objective')
-        for m in mols_tocalc
-    }
+    #newvals = {
+    #    Chem.MolToSmiles(m, True): m.GetProp('Objective')
+    #    for m in mols_tocalc
+    #}
     return
 
 
@@ -112,8 +114,8 @@ def ApplyCutOff(totallib, gen):
     # apply correction to cutoff if cutoff is too harsh
     if minNMol:
         # don't let the total number of mols drop below a certain number:
-        print "cutoff not applied. Nmol should stay at {:d}.".format(minNMol)
         if Nbefore>minNMol and Nafter<minNMol:
+            print "cutoff not applied. Nmol should stay at {:d}.".format(minNMol)
             newpool = totallib[:minNMol]
     if maxRemove:
         if Nbefore-Nafter > maxRemove * Nbefore:

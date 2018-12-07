@@ -21,7 +21,7 @@ def Initialize():
     # define which type of module attributes are allowed to be changed
     primitiveTypes = (str, float, bool, int, list, tuple, type(None))
     isinputfunction= lambda var: hasattr(var, '__name__') and var.__name__ in [
-            'fitnessfunction', 'extender']
+            'fitnessfunction', 'extender', 'CustomMutator']
     normalvar =  lambda var: type(var) in primitiveTypes or isinputfunction(var)
     notbuiltin = lambda var: not var.startswith('_')
 
@@ -58,6 +58,7 @@ def Initialize():
     _modules = [
         'acsess',
         'mutate',
+        'crossover',
         'filters',
         'Filters.DefaultFilters',
         'Filters.ExtraFilters',
@@ -193,11 +194,14 @@ def StartLibAndPool(restart):
     #case 1: read from mprms.poolfile
     if hasattr(mprms, 'poolFile'):
         pool = [mol for mol in lib]
-        supplier = Chem.SmilesMolSupplier(mprms.poolFile, sanitize=False)
-        newpool = [mol for mol in supplier]
-        pool += newpool
-        print 'Initializing pool from ' + mprms.poolFile + ' of ' +\
+        try:
+            supplier = Chem.SmilesMolSupplier(mprms.poolFile, sanitize=False)
+            newpool = [mol for mol in supplier]
+            pool += newpool
+            print 'Initializing pool from ' + mprms.poolFile + ' of ' +\
                    str(len(newpool)) + ' molecules'
+        except IOError as e:
+            print "no pool file provided!"
 
     #case 2: read from mprms.poollib
     elif hasattr(mprms, 'poolLib'):
@@ -244,7 +248,10 @@ def StartLibAndPool(restart):
             lib = drivers.DriveFilters(lib, dostartfilter, dogenstrucs)
             pool = drivers.DriveFilters(pool, dostartfilter, dogenstrucs)
 
-    if len(lib)>mprms.subsetSize + mprms.edgeLen:
+    maxsize = mprms.subsetSize
+    if hasattr(mprms, 'edgeLen'):
+        maxsize += mprms.edgeLen
+    if len(lib)>maxsize:
         raise NotImplementedError('len startinglibrary larger than maxSubsetSize')
 
     return startiter, lib, pool

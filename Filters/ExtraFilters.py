@@ -98,6 +98,10 @@ newfilt.SetFilterPattern(Chem.MolFromSmarts("n~n~[#7]"))
 #newfilt.SetFixRoutine(FixByRemovingHeteroatoms)
 ExtraFilters['nnn'] = newfilt
 
+newfilt = NewPatternFilter('NN')
+newfilt.SetFilterPattern(Chem.MolFromSmarts("[#7]~[#7]"))
+ExtraFilters['NN'] = newfilt
+
 newfilt = NewPatternFilter('NNN')
 newfilt.SetFilterPattern(Chem.MolFromSmarts("[#7]~[#7]~[#7]"))
 #newfilt.SetFixRoutine(FixByRemovingHeteroatoms)

@@ -193,6 +193,49 @@ def GetFreeBonds(mol, order=None, notprop=None, sides=False):
         bonds = filter( hastwodoublesides, bonds)
     return bonds
 
+#########################################
+# Returns free valence for an atom
+# Obviously, there's a problem if it's negative
+## After implicit hydrogens are assigned with the valence model,
+## this can be replaced by the implicit hydrogen count
+# MaxValence={6:4, 7:3, 8:2, 9:1, 15:3, 17:1, 16:2, 35:1, 50:3, 51:2}
+MaxValence = {
+    1: 1,
+    6: 4,
+    7: 3,
+    8: 2,
+    9: 1,
+    15: 3,
+    17: 1,
+    16: 2,
+    35: 1,
+    50: 3,
+    51: 2
+}
+
+
+def EmptyValence(atom):
+
+    # Sulfur can have up to 2 double bonds to oxygen
+    # (if it's not aromatic)
+    if (atom.GetAtomicNum() == 16 and atom.HasProp('grouprep')) and (
+            atom.GetProp('grouprep') == 'sulfone'
+            or atom.GetProp('grouprep') == 'sf5'):
+        maxv = 6
+
+    elif (atom.GetAtomicNum and atom.HasProp('grouprep')
+          and atom.GetProp('grouprep') == 'nitro'):
+        maxv = 4
+
+    else:
+        try:
+            maxv = MaxValence[atom.GetAtomicNum()]
+        except KeyError:
+            print "Error in EmptyValence"
+            print atom.GetAtomicNum()
+            raise
+
+    return maxv - atom.GetExplicitValence() - atom.GetNumRadicalElectrons()
 
 ########## Set List properties
 
@@ -237,6 +280,8 @@ def Sanitize(mol, aromatic=False):
     return
 
 
+
+
 ################ Resonance Structures for radical and cations:
 
 def Resonate(mol, matches):
@@ -256,14 +301,36 @@ def Resonate(mol, matches):
                 assert bondtype==Chem.BondType.DOUBLE
                 bond.SetBondType(Chem.BondType.SINGLE)
         alast = newmol.GetAtomWithIdx(match[-1])
+        #nH = alast.GetNumImplicitHs() + alast.GetNumExplicitHs()
         alast.SetFormalCharge(1)
+        #alast.SetNumExplititHs(nH)
         newmols.append(newmol)
     return newmols
 
+def Resonate_p2(mol, matches):
+    newmols = []
+    for match in matches:
+        newmol = deepcopy(mol)
+        Chem.Kekulize(newmol, True)
+
+        # switch positive charge
+        a0 = newmol.GetAtomWithIdx(match[0])
+        a0.SetFormalCharge(0)
+        a1 = newmol.GetAtomWithIdx(match[1])
+        a1.SetFormalCharge(1)
+
+        # make bond a double bond
+        bond = newmol.GetBondBetweenAtoms(match[0], match[1])
+        assert bond.GetBondType()==Chem.BondType.SINGLE
+        bond.SetBondType(Chem.BondType.DOUBLE)
+
+        newmols.append(newmol)
+    return newmols
 
 def FullyResonate(mol, idx):
     # find a conjugated cation.
     cationpattern1 = Chem.MolFromSmarts('[+1]~*=*')
+    cationpattern2 = Chem.MolFromSmarts('[#7&+1]-[#16&X2]')
 
     radpositions = set()
     radpositions.add(idx)
@@ -271,28 +338,37 @@ def FullyResonate(mol, idx):
     Chem.Kekulize(mol, True)
 
     # make a selection of resonant structures including our initial molecule:
-    mols = [mol]
+    #mols = [mol]
+    molsD= {idx:mol}
     while True:
         l1 = len(radpositions)
-        for mol in mols:
-            matches = mol.GetSubstructMatches(cationpattern1)
+        for mol in molsD.values():
 
+            # resonate pattern 1
+            matches = mol.GetSubstructMatches(cationpattern1)
             # restrict matches if atoms were already conjugated:
-            newmatches = []
             for match in matches:
                 if not match[-1] in radpositions:
-                    newmatches.append(match)
+                    newstruct = Resonate(mol, [match])[0]
                     radpositions.add(match[-1])
-            if newmatches:
-                newstructs = Resonate(mol, newmatches)
-            else:
-                newstructs = []
-            mols.extend(newstructs)
+                    molsD[match[-1]]=newstruct
+
+            # resonate pattern 2
+            matchesp2 = mol.GetSubstructMatches(cationpattern2)
+            for matchp2 in matchesp2:
+                if not matchp2[-1] in radpositions:
+                    newstruct = Resonate_p2(mol, [matchp2])[0]
+                    radpositions.add(matchp2[-1])
+                    molsD[matchp2[-1]]=newstruct
+
         l2 = len(radpositions)
         # if no new conjugated atoms where found:
         if l1==l2:
             break
-    return mols
+    #print "molsD:"
+    #for i, imol in molsD.iteritems():
+    #    print i, Chem.MolToSmiles(imol)
+    return molsD
 
 def SelectResonanceStructure(mol):
     smi1 = Chem.MolToSmiles(mol)
@@ -315,7 +391,7 @@ def SelectResonanceStructure(mol):
         print "n resonance:", len(resSuppl), "for", Chem.MolToSmiles(mol)
         newmol = np.random.choice(resSuppl)
     else:
-        newmols = FullyResonate(mol, idx)
+        newmols = FullyResonate(mol, idx).values()
         #print "n resonance:", len(newmols), "for", Chem.MolToSmiles(mol)
         newmol = np.random.choice(newmols)
 

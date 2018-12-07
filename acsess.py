@@ -15,7 +15,6 @@ import init
 import os
 import subprocess
 import drivers as dr
-import celldiversity as cd
 import output
 from output import stats
 import objective
@@ -26,9 +25,10 @@ from similarity import NNSimilarity
 # set global variables:
 _iterhead = "\n-------------------- Iteration {0} ----------------\n"
 _gridAssign = None
+writeInterval=1
 
 def initiate():
-    global startiter, lib, pool, _gridAssign
+    global startiter, lib, pool, _gridAssign, cd, writeInterval
     ##################################
     # 1. read input and initialize
     ##################################
@@ -39,8 +39,13 @@ def initiate():
     startiter, lib, pool = init.StartLibAndPool(mprms.restart)
 
     if mprms.cellDiversity:
+        import celldiversity as cd
         siml,mylib,_gridAssign = cd.GridDiversity( [], lib+pool )
         #wrotepool=set( m.GetData('isosmi') for m in mylib+pool )
+
+    # this file is load before initialization so we have to change it here:
+    if hasattr(mprms, 'writeInterval'):
+        writeInterval = mprms.writeInterval
     return
 
 
@@ -113,7 +118,8 @@ def evolve():
         with open('mylib.smi', 'w') as f:
             for i, mol in enumerate(lib):
                 f.write(Chem.MolToSmiles(mol) + ' {:d}\n'.format(i))
-        if gen % mprms.writeInterval == 0 or gen == mprms.nGen - 1:
+        if gen % writeInterval == 0 or gen == mprms.nGen - 1:
+            print "writeInterval:", writeInterval
             DumpMols(lib, gen)
         DumpMols(pool)
         stats['diversity'] = siml
@@ -130,12 +136,21 @@ def evolve():
 if __name__ == "__main__":
     import sys
     import signal
+    import inspect
 
     def signal_term_handler(signal, frame):
-        print 'got kill signal!'
+        if signal or frame:
+            print 'got kill signal!'
         output.PrintTimings()
-        output.PrintStats()
+        output.PrintStat()
         output.PrintTotalTimings()
+        try:
+            f_locals = inspect.trace()[-1][0].f_locals
+            DumpMols(f_locals['lib'], f_locals['gen'])
+            DumpMols(f_locals['pool'])
+        except Exception as e:
+            print "didn't manage to dump pool and mylib after kill signal", e
+            print "Error Termination"
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, signal_term_handler)
@@ -165,11 +180,12 @@ if __name__ == "__main__":
             try:
                 evolve()
             except KeyboardInterrupt:
-                print "catched KeyboardInterrupt!"
-                output.PrintTimings()
-                output.PrintStat()
-                output.PrintTotalTimings()
-                sys.exit(0)
+                print "\n\n\t\t##############################\n"+\
+                          "\t\t# Catched KeyboardInterrupt! #\n"+\
+                          "\t\t##############################"
+                signal_term_handler(None, None)
+            else:
+                print "Normal Termination"
 
     run = RunACSESS()
     run.evolve()
