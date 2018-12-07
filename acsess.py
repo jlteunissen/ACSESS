@@ -14,6 +14,8 @@ import mprms
 import init
 import drivers as dr
 import output
+import os
+import subprocess
 from output import stats
 import objective
 from helpers import DumpMols, FinishSelection
@@ -123,6 +125,11 @@ def evolve():
         stats['diversity'] = siml
         output.PrintTimings()
         output.PrintStat()
+        try:
+            print "processing time:",
+            print [ p for p in subprocess.check_output(['ps','-fu','vsc10010']).split('\n')[:-1] if str(os.getpid()) in p.split()[1] ][0].split()[6]
+        except Exception:
+            pass
 
     output.PrintTotalTimings()
     print "DONE"
