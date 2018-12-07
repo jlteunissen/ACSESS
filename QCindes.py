@@ -88,8 +88,10 @@ def calculate(rdmols, QH2=False, gen=0):
         mols_nocal, mols_tocal = (mols_nodo, mols_todo)
 
     #2. do the calculations
-    do_calcs(mols_tocal, run)
+    if not len(mols_tocal)==0:
+        do_calcs(mols_tocal, run)
     mols = mols_tocal + mols_nocal
+
 
     #3. calculate final objectives
     set_target_properties(mols, run)

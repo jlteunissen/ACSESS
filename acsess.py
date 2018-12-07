@@ -12,6 +12,8 @@ from rdkit import Chem
 sys.path.append('.')
 import mprms
 import init
+import os
+import subprocess
 import drivers as dr
 import celldiversity as cd
 import output
@@ -117,6 +119,8 @@ def evolve():
         stats['diversity'] = siml
         output.PrintTimings()
         output.PrintStat()
+        print "processing time:",
+        print [ p for p in subprocess.check_output(['ps','-fu','vsc10010']).split('\n')[:-1] if str(os.getpid()) in p.split()[1] ][0].split()[6]
 
     output.PrintTotalTimings()
     print "DONE"
