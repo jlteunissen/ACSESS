@@ -11,6 +11,7 @@
 '''
 import os, sys
 import numpy as np
+import molfails
 
 from rdkit import Chem
 
@@ -29,8 +30,8 @@ pool_multiplier=10
 def Init():
     global run, table
     from CINDES.INDES.inputreader import readfile
-    from CINDES.INDES.procedures import BaseRun
-    from CINDES.INDES.procedures import set_table
+    from CINDES.INDES.run import BaseRun
+    from CINDES.utils.table import set_table
 
     # 1. read INPUT file
     param = readfile(open('INPUT', 'r'))
@@ -67,16 +68,22 @@ def calculate(rdmols, QH2=False, gen=0):
     # CINDES.utils.molecule.SmiMolecule objects
     mols = [SmiMolecule(Chem.MolToSmiles(rdmol, True)) for rdmol in rdmols]
     for mol, rdmol in zip(mols, rdmols):
-        mol.xyz = xyzfromrdmol(rdmol, RDGenConfs=RDGenConfs, pool_multiplier=pool_multiplier)
         mol.rdmol=rdmol
+        try:
+            mol.xyz = xyzfromrdmol(rdmol, RDGenConfs=RDGenConfs, pool_multiplier=pool_multiplier)
+        except molfails.NoGeom as e:
+            print "no geom constructed for now ignored molecule:", Chem.MolToSmiles(rdmol)
+            print e
+            mol.discard()
+            continue
 
-    # check if already in database
+    # check if already in database or already ignored.
     mols_todo, mols_nodo = check_in_table(
         mols, table, run.props, check_ignored=True)
 
     # Optional: perform prescreaning in a predictions.
     if run.predictions:
-        from CINDES.INDES.procedures import get_property_table
+        from CINDES.utils.table import get_property_table
         property_table = get_property_table(table, run)
         mols_nocal, mols_tocal, made_pred = predictor(
             run,
@@ -89,14 +96,16 @@ def calculate(rdmols, QH2=False, gen=0):
         mols_nocal, mols_tocal = (mols_nodo, mols_todo)
 
     #2. do the calculations
-    do_calcs(mols_tocal, run)
+    if not len(mols_tocal)==0:
+        do_calcs(mols_tocal, run)
     mols = mols_tocal + mols_nocal
+
 
     #3. calculate final objectives
     set_target_properties(mols, run)
 
-    # 4. Do the administration
-    loggings(mols, table)
+    # 4. Do the administration & set 'Objective' Property for RWMol objects
+    table = loggings(mols, table)
 
     return
 
@@ -109,12 +118,17 @@ def loggings(mols, table):
 
     # set the results as attributes from the rdmols
     for mol in mols:
-        mol.rdmol.SetDoubleProp('Objective', float(mol.Pvalue))
+        try:
+            mol.rdmol.SetDoubleProp('Objective', float(mol.Pvalue))
+        except AttributeError as e:
+            print "mol has no rdmol?:", mol
+            print "mol.ignored?", mol.IsDiscarded
+            print e
 
     print "logging table..."
     from CINDES.INDES.loggings import log_table
-    log_table(mols, table)
-    return
+    table = log_table(mols, table)
+    return table
 
 
 def xyzfromstring(string):

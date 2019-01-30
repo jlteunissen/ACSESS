@@ -355,9 +355,12 @@ def Compute3DCoords(mol, ff='ETKDG', RDGenConfs=False, **kwargs):
 
     #mol: rdkit RWMol or Mol
     if RDGenConfs:
-        from rdkithelpers import ConformerGenerator
-        generator = ConformerGenerator(max_conformers=1, **kwargs)
-        molAddH = generator(mol)
+        try:
+            from rdkithelpers import ConformerGenerator
+            generator = ConformerGenerator(max_conformers=1, **kwargs)
+            molAddH = generator(mol)
+        except RuntimeError as e:
+            raise NoGeom
     else:
         try:
             molAddH = Chem.AddHs(mol)
