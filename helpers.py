@@ -333,7 +333,6 @@ def xyzfromrdmol(rdmol, string=False, **kwargs):
         35: 'Br',
         53: 'I'
     }
-    print "kwargs:", kwargs
     with open('omega.mol', 'a') as out:
         with custom_redirection(out):
             molcoords = Compute3DCoords(rdmol, **kwargs)
