@@ -126,7 +126,8 @@ def evolve():
         output.PrintTimings()
         output.PrintStat()
         print "processing time:",
-        print [ p for p in subprocess.check_output(['ps','-fu','vsc10010']).split('\n')[:-1] if str(os.getpid()) in p.split()[1] ][0].split()[6]
+
+        print [ p for p in subprocess.check_output(['ps','-fu',os.environ['USER']]).split('\n')[:-1] if str(os.getpid()) in p.split()[1] ][0].split()[6]
 
     output.PrintTotalTimings()
     print "DONE"

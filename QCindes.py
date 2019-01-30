@@ -30,8 +30,8 @@ pool_multiplier=10
 def Init():
     global run, table
     from CINDES.INDES.inputreader import readfile
-    from CINDES.INDES.procedures import BaseRun
-    from CINDES.INDES.procedures import set_table
+    from CINDES.INDES.run import BaseRun
+    from CINDES.utils.table import set_table
 
     # 1. read INPUT file
     param = readfile(open('INPUT', 'r'))
@@ -83,7 +83,7 @@ def calculate(rdmols, QH2=False, gen=0):
 
     # Optional: perform prescreaning in a predictions.
     if run.predictions:
-        from CINDES.INDES.procedures import get_property_table
+        from CINDES.utils.table import get_property_table
         property_table = get_property_table(table, run)
         mols_nocal, mols_tocal, made_pred = predictor(
             run,
@@ -105,7 +105,7 @@ def calculate(rdmols, QH2=False, gen=0):
     set_target_properties(mols, run)
 
     # 4. Do the administration & set 'Objective' Property for RWMol objects
-    loggings(mols, table)
+    table = loggings(mols, table)
 
     return
 
@@ -127,8 +127,8 @@ def loggings(mols, table):
 
     print "logging table..."
     from CINDES.INDES.loggings import log_table
-    log_table(mols, table)
-    return
+    table = log_table(mols, table)
+    return table
 
 
 def xyzfromstring(string):

@@ -107,6 +107,15 @@ newfilt.SetFilterPattern(Chem.MolFromSmarts("[#7]~[#7]~[#7]"))
 #newfilt.SetFixRoutine(FixByRemovingHeteroatoms)
 ExtraFilters['NNN'] = newfilt
 
+newfilt = NewPatternFilter('thioketone')
+newfilt.SetFilterPattern(Chem.MolFromSmarts("*=[S;X1;H0]"))
+ExtraFilters['thioketone'] = newfilt
+
+
+newfilt = NewPatternFilter('NOS')
+newfilt.SetFilterPattern(Chem.MolFromSmarts('[#7]~[#6]~[#16]'))
+ExtraFilters['NOS'] = newfilt
+
 ############################################################
 #       Functions from QiuFilter.py
 ############################################################
