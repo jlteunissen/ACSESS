@@ -12,6 +12,8 @@ from rdkit import Chem
 sys.path.append('.')
 import mprms
 import init
+import os
+import subprocess
 import drivers as dr
 import output
 import os
