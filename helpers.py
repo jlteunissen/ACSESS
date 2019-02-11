@@ -368,10 +368,10 @@ def Compute3DCoords(mol, ff='ETKDG', RDGenConfs=False, **kwargs):
                 #calculate mol 3D coordinate
                 AllChem.EmbedMolecule(molAddH, AllChem.ETKDG())
             elif ff == 'UFF':
-                AllChem.EmbedMolecule(molAddH)
+                AllChem.EmbedMolecule(molAddH, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
                 AllChem.UFFOptimizeMolecule(molAddH)
             elif ff == 'MMFF':
-                AllChem.EmbedMolecule(molAddH)
+                AllChem.EmbedMolecule(molAddH, useExpTorsionAnglePrefs=True, useBasicKnowledge=True)
                 AllChem.MMFFOptimizeMolecule(molAddH)
             else:
                 raise TypeError('force field not recognized')
