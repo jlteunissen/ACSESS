@@ -294,9 +294,11 @@ def GetScore(mol):
 
 
 def RemoveDuplicates(lib):
+
     def verify_isosmi(mol):
         if not mol.HasProp('isosmi'):
             mol.SetProp('isosmi', Chem.MolToSmiles(mol))
+
     map(verify_isosmi, lib)
     lib.sort(key=lambda x: x.GetProp('isosmi'))
 
@@ -319,7 +321,23 @@ def RemoveDuplicates(lib):
 
         else:
             i += 1
+
     return lib
+
+def RemoveDuplicates_hard(lib):
+    ''' I made this because there where still duplicates arising
+    This is more a test function and the original function should take care of 
+    duplicates found here '''
+    newlib = []
+    allsmiles = set()
+    for mol in lib:
+        smi = Chem.MolToSmiles(mol)
+        if not smi in allsmiles:
+            allsmiles.add(smi)
+            newlib.append(mol)
+        else:
+            print "A duplicate is found after RemoveDuplicates: {}".format(smi) 
+    return newlib
 
 def SelectTautomer(candidate):
     smi1 = Chem.MolToSmiles(candidate)

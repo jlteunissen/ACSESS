@@ -6,7 +6,7 @@ import os
 import mprms
 from rdkit import Chem
 from rdkithelpers import *
-from drivers import RemoveDuplicates
+from drivers import RemoveDuplicates, RemoveDuplicates_hard
 import output
 
 # fixed global variables
@@ -136,6 +136,7 @@ def EvaluateObjective(totallib, gen):
 
     # 0. Remove Duplicates
     totallib = RemoveDuplicates(totallib)
+    totallib = RemoveDuplicates_hard(totallib)
 
     # 1. do actual objective evaluation
     UpdateObjective(totallib, gen)

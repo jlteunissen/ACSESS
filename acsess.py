@@ -138,6 +138,7 @@ if __name__ == "__main__":
     import sys
     import signal
     import inspect
+    import time
 
     def signal_term_handler(signal, frame):
         if signal or frame:
@@ -188,5 +189,6 @@ if __name__ == "__main__":
             else:
                 print "Normal Termination"
 
+    print time.ctime()
     run = RunACSESS()
     run.evolve()
