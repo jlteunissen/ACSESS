@@ -51,7 +51,7 @@ def Init():
         from molproperty import MoreauBrotoACVector as Coords
     elif str(metric).lower() == 'autocorr2d':
         from molproperty import AutoCorr2D as Coords
-    elif str(metric) == 'AutoCorrMordred':
+    elif str(metric) in ['AutoCorrMordred', 'ATS', 'MATS', 'ATSC', 'AATS', 'AATSC']:
         from molproperty import AutoCorrMordred as Coords
     elif str(metric) == 'MoreauBroto':
         from molproperty import MoreauBrotoPyBioMed as Coords

@@ -22,6 +22,7 @@ property calculation, including:
     MQN.py
 '''
 maxBonds = 7
+metric = None
 
 def AutoCorr2D(mol):
     from rdkit.Chem import rdMolDescriptors
@@ -32,7 +33,16 @@ def AutoCorrMordred(mol):
     from mordred import Calculator, Autocorrelation
     calc = Calculator()
     # ATS, ATSC, AATS, AATSC ?
-    descriptor = Autocorrelation.ATS
+    if metric == 'MATS':
+        descriptor = Autocorrelation.MATS
+    elif metric == 'ATSC':
+        descriptor = Autocorrelation.ATSC
+    elif metric == 'AATS':
+        descriptor = Autocorrelation.AATS
+    elif metric == 'AATSC':
+        descriptor = Autocorrelation.AATSC
+    else:
+        descriptor = Autocorrelation.ATS
     calc.register(descriptor)
     res = calc(mol)
     res = res.fill_missing()
