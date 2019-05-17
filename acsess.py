@@ -77,6 +77,11 @@ def evolve():
         pool = dr.DrivePoolFilters(pool, Filtering, GenStrucs, Tautomerizing,
                                    gen)
 
+        # 3c. Intermediate Logging:
+        with open('mylib.smi', 'w') as f:
+            for i, mol in enumerate(newlib):
+                f.write(Chem.MolToSmiles(mol) + ' {:d}\n'.format(i))
+
         # 4. OBJECTIVE EVALUATION
         if mprms.optimize:
             print "acsess.py len(newlib, pool):{} {}".format(
@@ -117,9 +122,6 @@ def evolve():
         print '\nLIBRARY DIVERSITY: ', siml
 
         # 7. POSTLOGGING
-        with open('mylib.smi', 'w') as f:
-            for i, mol in enumerate(lib):
-                f.write(Chem.MolToSmiles(mol) + ' {:d}\n'.format(i))
         if gen % writeInterval == 0 or gen == mprms.nGen - 1:
             print "writeInterval:", writeInterval
             DumpMols(lib, gen)

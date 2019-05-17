@@ -47,8 +47,8 @@ def AutoCorrMordred(mol):
     res = calc(mol)
     res = res.fill_missing()
     # Z: atomic num, pe=pauling electronegativity, p=polarizability, x=unweighted(identity), v=vdw-volume
-    # dv= nValence
-    props= ['Z', 'pe', 'p', 'dv' ]
+    # dv= nValence d=nsigmaelectrons
+    props= ['Z', 'pe', 'p', 'v', 'd', 'dv' ]
     keys = [ 'ATS{d}{p}'.format(d=d, p=p) for d in range(maxBonds+1) for p in props ]
     #print "keys:", keys
     res = { k:v for k, v in res.asdict().iteritems() if k in keys }
