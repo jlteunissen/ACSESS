@@ -32,12 +32,7 @@ def AutoCorrMordred(mol):
     from mordred import Calculator, Autocorrelation
     calc = Calculator()
     # ATS, ATSC, AATS, AATSC ?
-    if True:
-        descriptor = Autocorrelation.AATSC
-    elif True:
-        descriptor = Autocorrelation.ATS
-    else:
-        descriptor = Autocorrelation.MATS
+    descriptor = Autocorrelation.ATS
     calc.register(descriptor)
     res = calc(mol)
     res = res.fill_missing()
