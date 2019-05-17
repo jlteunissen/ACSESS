@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 ''' This module acts as an interface between ACSESS and CINDES
-    The expected input:
-    - list of Chem.Mol objects
-    - CINDES.INDES.procedures.run object with calc. specifications
 
     The result is that all Chem.Mol objects have an objective attribute
 
@@ -29,26 +26,24 @@ pool_multiplier=10
 
 def Init():
     global run, table
-    from CINDES.INDES.inputreader import readfile
-    from CINDES.INDES.run import BaseRun
+    from CINDES.inputreader import read_input
     from CINDES.utils.table import set_table
 
-    # 1. read INPUT file
-    param = readfile(open('INPUT', 'r'))
+    # 1. read input
+    run = read_input('INPUT')
 
-    # 2. make run object
-    run = BaseRun(**param)
-
-    # 3. set optimum from mprms file so they are automatically similar
+    # 2. set optimum from mprms file so they are automatically similar
     if minimize:
         run.optimum = 'minimum'
     else:
         run.optimum = 'maximum'
 
-    # 4. set table
+    # 3. set table
     table = set_table(run)
 
+    # 4. print input
     print run
+
     return run
 
 def calculate(rdmols, QH2=False, gen=0):
@@ -60,49 +55,26 @@ def calculate(rdmols, QH2=False, gen=0):
     #if len(table) < 10: print table
 
     # -1 imports
-    from CINDES.INDES.calculator import do_calcs, set_target_properties
-    from CINDES.INDES.predictions import predictor
-    from CINDES.INDES.construction import check_in_table
+    from CINDES.evaluation.calculator import evaluate_mols
 
     # 1. RDKit.Chem.Mol(rdmol) objects have to have a molecular specification
     # CINDES.utils.molecule.SmiMolecule objects
     mols = [SmiMolecule(Chem.MolToSmiles(rdmol, True)) for rdmol in rdmols]
+
+    # 2. set xyz coordinates of molecules:
     for mol, rdmol in zip(mols, rdmols):
         mol.rdmol=rdmol
         try:
             mol.xyz = xyzfromrdmol(rdmol, RDGenConfs=RDGenConfs, pool_multiplier=pool_multiplier)
-        except molfails.NoGeom as e:
+        except (ValueError, molfails.NoGeom) as e:
             print "no geom constructed for now ignored molecule:", Chem.MolToSmiles(rdmol)
             print e
             mol.discard()
             continue
 
-    # check if already in database or already ignored.
-    mols_todo, mols_nodo = check_in_table(
-        mols, table, run.props, check_ignored=True)
-
-    # Optional: perform prescreaning in a predictions.
-    if run.predictions:
-        from CINDES.utils.table import get_property_table
-        property_table = get_property_table(table, run)
-        mols_nocal, mols_tocal, made_pred = predictor(
-            run,
-            property_table,
-            mols_todo,
-            mols_nodo,
-            count=gen,
-        )
-    else:
-        mols_nocal, mols_tocal = (mols_nodo, mols_todo)
-
-    #2. do the calculations
-    if not len(mols_tocal)==0:
-        do_calcs(mols_tocal, run)
-    mols = mols_tocal + mols_nocal
-
-
-    #3. calculate final objectives
-    set_target_properties(mols, run)
+    # 3. Do the actual calculation:
+    #mols_all, nnewcalcs, made_pred = evaluate_mols(run, mols, table, count=gen, nsite=0)
+    evaluate_mols(run, mols, table, count=gen, nsite=0)
 
     # 4. Do the administration & set 'Objective' Property for RWMol objects
     table = loggings(mols, table)
@@ -112,9 +84,9 @@ def calculate(rdmols, QH2=False, gen=0):
 @log_io()
 def loggings(mols, table):
     # Optional. log results to screen
-    if True:
-        from CINDES.INDES.loggings import log_screen
-        log_screen(mols)
+    from CINDES.algorithms.loggings import log_screen, log_table
+
+    log_screen(mols)
 
     # set the results as attributes from the rdmols
     for mol in mols:
@@ -126,7 +98,6 @@ def loggings(mols, table):
             print e
 
     print "logging table..."
-    from CINDES.INDES.loggings import log_table
     table = log_table(mols, table)
     return table
 

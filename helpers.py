@@ -408,7 +408,10 @@ def GetMurckoScaffold(mol):
 
 class FakeModule(object):
     def __init__(self):
-        self.molfails = __import__('molfails')
+        try:
+            self.molfails = __import__('molfails')
+        except ImportError as e:
+            pass
         return
 
 ACSESS = FakeModule()
