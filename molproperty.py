@@ -24,6 +24,25 @@ property calculation, including:
 maxBonds = 7
 metric = None
 
+def MyCustom(mol):
+    ''' This is the plan:
+        combine the MQN and AC descriptor:
+        Steps:
+        1. make AC vector
+        2. make MQN vector
+        3. add user-added extension vector
+        
+        while making sure every dimension has the right scaling
+    '''
+    # 1. 
+    ACvec = AutoCorrMordred(mol)
+
+    # 2. make MQN vector
+    MQNvec = CalcMQNs(mol)
+
+    totalvec = ACvec + MQNvec
+    return totalvec
+
 def AutoCorr2D(mol):
     from rdkit.Chem import rdMolDescriptors
     vector = rdMolDescriptors.CalcAUTOCORR2D(mol)

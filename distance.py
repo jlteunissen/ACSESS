@@ -55,6 +55,8 @@ def Init():
         from molproperty import AutoCorrMordred as Coords
     elif str(metric) == 'MoreauBroto':
         from molproperty import MoreauBrotoPyBioMed as Coords
+    elif str(metric) == 'custom':
+        from molproperty import  MyCustom as Coords
     elif metric is None:
         print 'No coordinate system set!, so Similarity measures will be used!'
     else:
@@ -137,7 +139,6 @@ def ScatterCoords(mols):
 #@pl.MPIScatter
 def MPICoordCalc(smistring):
     mol = Chem.MolFromSmiles(smistring)
-
     return SetCoords(mol)
 
 
