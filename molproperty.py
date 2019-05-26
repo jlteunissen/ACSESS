@@ -31,11 +31,14 @@ def MyCustom(mol):
         1. make AC vector
         2. make MQN vector
         3. add user-added extension vector
-        
         while making sure every dimension has the right scaling
     '''
-    # 1. 
+    # 1.
+    global metric
+    old_metric = metric
+    metric = 'MATS'
     ACvec = AutoCorrMordred(mol)
+    metric = old_metric
 
     # 2. make MQN vector
     MQNvec = CalcMQNs(mol)
